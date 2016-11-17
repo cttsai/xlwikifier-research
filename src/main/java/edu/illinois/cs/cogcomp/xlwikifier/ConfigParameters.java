@@ -32,7 +32,7 @@ public class ConfigParameters {
 
 
     public static void setPropValues() {
-        String default_config = "config/xlwikifier-tac.config";
+        String default_config = "config/xlwikifier-demo.config";
         setPropValues(default_config);
     }
 
