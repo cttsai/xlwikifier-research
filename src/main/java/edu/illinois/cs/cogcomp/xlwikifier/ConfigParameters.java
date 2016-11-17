@@ -2,6 +2,7 @@ package edu.illinois.cs.cogcomp.xlwikifier;
 
 import edu.illinois.cs.cogcomp.core.utilities.configuration.ResourceManager;
 import edu.illinois.cs.cogcomp.xlwikifier.datastructures.Language;
+import edu.illinois.cs.cogcomp.xlwikifier.freebase.FreeBaseQuery;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -44,10 +45,11 @@ public class ConfigParameters {
             e.printStackTrace();
         }
 
-        if(!is_set) {
+        if(!is_set || !config_file.equals(config_name)) {
             logger.info("Loading configuration: " + config_file);
             setPropValues(rm);
             config_name = config_file;
+            is_set = true;
         }
         else{
             logger.info("Config is already set to "+config_file);
@@ -75,8 +77,11 @@ public class ConfigParameters {
 //                ranker_ner.put(l, rm.getString(key).trim());
         }
 
-        if (rm.containsKey("db_path"))
+        if (rm.containsKey("db_path")) {
             db_path = rm.getString("db_path").trim();
+            if (!FreeBaseQuery.isloaded())
+                FreeBaseQuery.loadDB(true);
+        }
         else
             logger.error("db_path is required");
 
