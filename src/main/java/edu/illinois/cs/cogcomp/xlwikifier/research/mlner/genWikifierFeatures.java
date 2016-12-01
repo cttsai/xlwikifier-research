@@ -14,13 +14,13 @@ public class genWikifierFeatures {
 
     public static void main(String[] args) {
 
-        String lang = ""
+//        String lang = ""
 
         String indir = "";
         ColumnFormatReader reader = new ColumnFormatReader();
         List<QueryDocument> docs = reader.readDir(indir, false);
 
-        annotator = MultiLingualNERManager.buildNerAnnotator()
+//        annotator = MultiLingualNERManager.buildNerAnnotator()
 
 
     }

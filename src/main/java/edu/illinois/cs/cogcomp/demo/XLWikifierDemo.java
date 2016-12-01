@@ -1,6 +1,6 @@
 package edu.illinois.cs.cogcomp.demo;
 
-import com.github.stuxuhai.jpinyin.ChineseHelper;
+import edu.illinois.cs.cogcomp.core.constants.Language;
 import edu.illinois.cs.cogcomp.core.datastructures.textannotation.TextAnnotation;
 import edu.illinois.cs.cogcomp.tokenizers.MultiLingualTokenizer;
 import edu.illinois.cs.cogcomp.tokenizers.Tokenizer;
@@ -9,7 +9,6 @@ import edu.illinois.cs.cogcomp.xlwikifier.CrossLingualWikifierManager;
 import edu.illinois.cs.cogcomp.xlwikifier.MultiLingualNER;
 import edu.illinois.cs.cogcomp.xlwikifier.MultiLingualNERManager;
 import edu.illinois.cs.cogcomp.xlwikifier.datastructures.ELMention;
-import edu.illinois.cs.cogcomp.xlwikifier.datastructures.Language;
 import edu.illinois.cs.cogcomp.xlwikifier.datastructures.QueryDocument;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -20,17 +19,14 @@ import org.slf4j.LoggerFactory;
 public class XLWikifierDemo {
 
     private String output;
-    private String runtime;
 
     private String default_config = "config/xlwikifier-demo.config";
     private static Logger logger = LoggerFactory.getLogger(XLWikifierDemo.class);
 
     public XLWikifierDemo(String text, String language) {
-        Language lang = Language.getLanguage(language);
+        Language lang = Language.getLanguageByCode(language);
 
         Tokenizer tokenizer = MultiLingualTokenizer.getTokenizer(language);
-        if(language.equals("zh"))
-            text = ChineseHelper.convertToSimplifiedChinese(text);
         TextAnnotation ta = tokenizer.getTextAnnotation(text);
 
         long startTime = System.currentTimeMillis();
@@ -46,6 +42,7 @@ public class XLWikifierDemo {
         logger.info("Time " + totaltime + " secs");
 
         output = formatOutput(xlwikifier.result, language);
+        logger.info("Done");
     }
 
     /**
@@ -56,7 +53,6 @@ public class XLWikifierDemo {
      * @return
      */
     private String formatOutput(QueryDocument doc, String lang) {
-        logger.info("Formatting demo outputs...");
         String out = "";
 
         int pend = 0;
@@ -98,18 +94,6 @@ public class XLWikifierDemo {
 
     public String getOutput() {
         return this.output;
-    }
-
-    public String getRuntime() {
-        return this.runtime;
-    }
-
-    public static void main(String[] args) {
-        String text = "Louis van Gaal , Endonezya maçı sonrasında oldukça ses getirecek açıklamalarda bulundu .";
-        String lang = "tr";
-//        text = "Paul Kantor teaches information science at Rutgers University";
-        XLWikifierDemo result = new XLWikifierDemo(text, lang);
-        System.out.println(result.getOutput());
     }
 
 }
