@@ -1,6 +1,7 @@
 package edu.illinois.cs.cogcomp.xlwikifier.wikipedia;
 
 import edu.illinois.cs.cogcomp.xlwikifier.ConfigParameters;
+import edu.illinois.cs.cogcomp.xlwikifier.core.Ranker;
 import edu.illinois.cs.cogcomp.xlwikifier.core.TFIDFManager;
 import edu.illinois.cs.cogcomp.core.datastructures.ViewNames;
 import edu.illinois.cs.cogcomp.core.datastructures.textannotation.Constituent;
@@ -57,10 +58,6 @@ public class Importer {
         candfile = dumpdir + "/links";
         textfile = dumpdir + "/sg.withtitle";
 
-//        if(new File(textfile).exists()){
-//            logger.warn(textfile+" exists!");
-//            System.exit(-1);
-//        }
     }
 
 
@@ -85,6 +82,14 @@ public class Importer {
 
     public void parseWikiDump() throws IOException, SAXException {
         logger.info("Parsing wikidump " + dumpfile);
+        if(new File(textfile).exists()){
+            logger.warn(textfile+" exists!");
+            System.exit(-1);
+        }
+        if(new File(candfile).exists()){
+            logger.warn(candfile+" exists!");
+            System.exit(-1);
+        }
         List<String> docs = new ArrayList<>();
         StringBuilder doc_text = new StringBuilder();
         StringBuilder cand_pair = new StringBuilder();
@@ -198,7 +203,7 @@ public class Importer {
 
     public void importCandidates() {
         logger.info("Importing into candidate DB...");
-        WikiCandidateGenerator wcg = new WikiCandidateGenerator(lang, true);
+        WikiCandidateGenerator wcg = new WikiCandidateGenerator(lang, false);
         wcg.populateDB(lang, redirectfile, pagefile, candfile);
     }
 
@@ -212,6 +217,16 @@ public class Importer {
         }
     }
 
+    public void trainSkipGram(){
+
+        String modelfile = "/shared/preprocessed/ctsai12/multilingual/sg-model/"+lang+".model";
+        String outfile = "/shared/preprocessed/ctsai12/multilingual/vectors/vectors."+lang;
+
+        Ranker ranker = new Ranker();
+        ranker.executeCmd("python /shared/bronte/ctsai12/multilingual/sg/train.py "+textfile+" "+modelfile+" "+outfile);
+
+    }
+
 
     public static void main(String[] args) {
         ConfigParameters.setPropValues(args[2]);
@@ -220,9 +235,10 @@ public class Importer {
         try {
 //            importer.downloadDump();
 //            importer.parseWikiDump();
-//            importer.importLangLinks();
+            importer.importLangLinks();
             importer.importCandidates();
-//            importer.importTFIDF();
+            importer.importTFIDF();
+            importer.trainSkipGram();
         } catch (Exception e) {
             e.printStackTrace();
         }

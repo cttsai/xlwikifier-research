@@ -2,7 +2,10 @@ package edu.illinois.cs.cogcomp.xlwikifier.research.transliteration;
 
 import edu.illinois.cs.cogcomp.core.datastructures.Pair;
 import edu.illinois.cs.cogcomp.core.io.LineIO;
+import edu.illinois.cs.cogcomp.transliteration.Example;
+import edu.illinois.cs.cogcomp.transliteration.SPModel;
 import edu.illinois.cs.cogcomp.utils.Utils;
+import org.h2.store.fs.FileUtils;
 
 import java.io.FileNotFoundException;
 import java.util.*;
@@ -20,7 +23,7 @@ public class Evaluator {
      * @param testfile
      * @param predfile
      */
-    public static void evalSequitur(String testfile, String predfile){
+    public static Pair<Double, Integer> evalSequitur(String testfile, String predfile){
 
         System.out.println("Evaluating Sequitur prediction: "+predfile);
         List<Pair<String[], String[]>> test_pairs = TransUtils.readPairs(testfile);
@@ -46,10 +49,10 @@ public class Evaluator {
             e.printStackTrace();
         }
 
-        evalModelPred(test_pairs, preds);
+        return evalModelPred(test_pairs, preds);
     }
 
-    public static void evalJanus(String testfile, String tokenfile, String predfile) {
+    public static Pair<Double, Integer> evalJanus(String testfile, String tokenfile, String predfile) {
 
         System.out.println("Evaluating JANUS prediction: " + predfile);
         List<Pair<String[], String[]>> test_pairs = TransUtils.readPairs(testfile);
@@ -85,7 +88,7 @@ public class Evaluator {
 
         }
 
-        evalModelPred(test_pairs, preds);
+        return evalModelPred(test_pairs, preds);
     }
 
     public void evalDirecTL(String testfile, String predfile){
@@ -115,7 +118,7 @@ public class Evaluator {
         evalModelPred(test_pairs, preds);
     }
 
-    public static void evalPhrasePred(String testfile, String predfile) {
+    public static Pair<Double, Integer> evalPhrasePred(String testfile, String predfile) {
 
         ArrayList<String> testlines = null;
         ArrayList<String> predlines = null;
@@ -144,6 +147,8 @@ public class Evaluator {
         }
         double f1 = totalf1 / (double)predlines.size();
         System.out.println("AVGF1 =" + f1);
+
+        return new Pair<>(totalf1, predlines.size());
     }
 
     /**
@@ -151,7 +156,7 @@ public class Evaluator {
      * @param pairs
      * @param predictions
      */
-    public static void evalModelPred(List<Pair<String[], String[]>> pairs, Map<String, List<String>> predictions){
+    public static Pair<Double, Integer> evalModelPred(List<Pair<String[], String[]>> pairs, Map<String, List<String>> predictions){
 
         double correctmrr = 0;
         double correctacc = 0;
@@ -190,7 +195,9 @@ public class Evaluator {
 
         System.out.println("AVGMRR=" + mrr);
         System.out.println("AVGACC=" + acc);
-        System.out.println("AVGF1 =" + f1);
+        System.out.printf("AVGF1 = %.2f\n", f1*100);
+
+        return new Pair<Double, Integer>(f1, pairs.size());
 
     }
 
@@ -233,31 +240,90 @@ public class Evaluator {
 
     }
 
+
+    public static void trainAndTestJeff(String trainfile, String devfile,String testfile){
+
+        TitleTranslator tt = new TitleTranslator();
+        List<Pair<String[], String[]>> test_pairs = TransUtils.readPairs(testfile);
+        List<Pair<String[], String[]>> dev_pairs = TransUtils.readPairs(devfile);
+
+        List<Pair<String[], String[]>> pairs = TransUtils.readPairs(trainfile);
+        List<Example> training = new ArrayList<>();
+        for(Pair<String[], String[]> pair: pairs) {
+            Example exp = new Example(pair.getFirst()[0], pair.getSecond()[0]);
+            training.add(exp);
+        }
+
+        double max_f1 = 0;
+        double best_test = 0;
+        for(int iter = 1; iter <=5; iter++) {
+            SPModel model = new SPModel(training);
+            model.Train(iter);
+            double df1 = tt.evalModel(dev_pairs, model, null);
+            double tf1 = tt.evalModel(test_pairs, model, null);
+            if(df1 > max_f1){
+                max_f1 = df1;
+                best_test = tf1;
+            }
+        }
+
+        System.out.printf("Test F1 at best dev iter: %.2f\n", best_test*100);
+
+    }
+
     public static void main(String[] args) {
 
         String system = args[0];
-        String lang = args[1];
+//        String lang = args[1];
 //        String type = args[2];
         List<String> types = Arrays.asList("loc", "org", "per");
+        List<String> langs = Arrays.asList("tr", "tl", "es", "de", "bn", "ta");
+//        List<String> langs = Arrays.asList("de");
 //        List<String> types = Arrays.asList("loc");
 
-        String dir = "/shared/corpora/ner/transliteration/"+lang+"/";
-        for(String type: types) {
-            String testfile = dir + type + "/test.select";
+        for(String lang: langs) {
+            System.out.println("========== "+lang+" ============");
+            double f1_sum = 0;
+            double n_test = 0;
+            String dir = "/shared/corpora/ner/transliteration/" + lang + "/";
+            for (String type : types) {
+                String testfile = dir + type + "/test.select";
 
-            if (system.equals("seq")) {
-                String predfile = dir + type + "/naive-align/test.tokens.seq";
-                evalSequitur(testfile, predfile);
-            }
-            else if (system.equals("janus")){
-                String predfile = dir + type + "/naive-align/janus/prediction/tst.src.res.agm";
-                String tokenfile = dir + type + "/janus/test.tokens."+lang;
-                evalJanus(testfile, tokenfile, predfile);
-            }
-            else if (system.equals("nmt")){
-                String prefile = "/scratch/ctsai12/transliteration/"+lang+"/"+type+"/"+lang+"en/pred"
+                if (system.equals("seq")) {
+                    String predfile = dir + type + "/fast-align/test.tokens.seq";
+                    if (!FileUtils.exists(predfile)) {
+                        System.out.println("skipping " + predfile);
+                        continue;
+                    }
+                    Pair<Double, Integer> results = evalSequitur(testfile, predfile);
+                    f1_sum += results.getFirst()*results.getSecond();
+                    n_test += results.getSecond();
+                } else if (system.equals("janus")) {
+                    String predfile = "/shared/experiments/ctsai12/workspace/Agtarbidir/"+lang+"/src.res.agm." + type+".naive";
 
+                    if (!FileUtils.exists(predfile)) {
+                        System.out.println("skipping " + predfile);
+                        continue;
+                    }
+                    String tokenfile = dir + type + "/janus/test.tokens." + lang;
+                    Pair<Double, Integer> results = evalJanus(testfile, tokenfile, predfile);
+                    System.out.println(results.getSecond());
+                    f1_sum += results.getFirst()*results.getSecond();
+                    n_test += results.getSecond();
+                } else if (system.equals("nmt")) {
+//                String predfile = "/scratch/ctsai12/transliteration/"+lang+"/"+type+"/"+lang+"en/pred";
+//                String goldfile = "/scratch/ctsai12/transliteration/"+lang+"/"+type+"/"+lang+"en/test/all_"+lang+"-en.en";
+//                evalPhrasePred(goldfile, predfile);
+                } else if (system.equals("jeff")) {
+//                    String trainfile = dir + type + "/naive-align/train.4";
+                    String trainfile = dir + type + "/fast-align/train.nodup";
+                    String devfile = dir + type + "/dev.select";
+
+                    trainAndTestJeff(trainfile, devfile, testfile);
+                }
             }
+
+            System.out.printf("%.2f\n", f1_sum*100/n_test);
         }
     }
 }

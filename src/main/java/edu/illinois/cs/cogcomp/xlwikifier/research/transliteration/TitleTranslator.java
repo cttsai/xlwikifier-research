@@ -1,7 +1,6 @@
 package edu.illinois.cs.cogcomp.xlwikifier.research.transliteration;
 
 import edu.illinois.cs.cogcomp.core.datastructures.Pair;
-import edu.illinois.cs.cogcomp.core.io.LineIO;
 import edu.illinois.cs.cogcomp.transliteration.SPModel;
 import edu.illinois.cs.cogcomp.utils.Utils;
 import org.apache.commons.io.FileUtils;
@@ -68,7 +67,7 @@ public class TitleTranslator {
 
     private Map<Integer, List<List<Integer>>> n2perms;
 
-    private boolean eval_align = false;
+    private boolean eval_align = true;
 
     private Map<String, SPModel> type2model;
 
@@ -255,10 +254,11 @@ public class TitleTranslator {
                 String tgt_tail = target.substring(j, target.length());
 
                 double prob = getProdProb(src_tail, tgt_tail);
-                if(prob == 0) continue;
+//                if(prob == 0) continue;
 
                 if(!s2t2prob.containsKey(src_head) || !s2t2prob.get(src_head).containsKey(tgt_head))
-                    return 0;
+                    continue;
+//                    return 0;
                 probsum += s2t2prob.get(src_head).get(tgt_head)*prob;
             }
         }
@@ -868,7 +868,7 @@ public class TitleTranslator {
 
     public List<String> generatePhraseAlign(String[] parts, SPModel model){
 
-        model.setMaxCandidates(3);
+        model.setMaxCandidates(2);
 
         List<String> sources = new ArrayList<>();
         List<String> targets = new ArrayList<>();
@@ -877,6 +877,10 @@ public class TitleTranslator {
             List<Pair<Double, String>> prediction = null;
             try {
                  prediction = model.Generate(part).toList();
+//                for(int i = 0; i <prediction.size(); i++){
+//                    double p = model.Probability(part, prediction.get(i).getSecond());
+//                    System.out.println(prediction.get(i)+" "+p);
+//                }
             } catch (Exception e) {
                 e.printStackTrace();
             }
@@ -897,6 +901,11 @@ public class TitleTranslator {
             target_cands.add(t);
         }
 
+//        System.out.println("source:");
+//        System.out.println("\t"+sources);
+//        System.out.println("target cands:");
+//        System.out.println("\t"+target_cands);
+
 
         String lm = n+"_"+n;
 
@@ -911,15 +920,20 @@ public class TitleTranslator {
                         .map(x -> Integer.parseInt(x)).collect(Collectors.toList());
 
                 double score = lm2a2prob.get(lm).get(a);
+//                System.out.println(score);
                 for(int i = 0; i < sources.size(); i++) {
-                    if(!cand.get(i).isEmpty())
-                        score *= getProdProb(sources.get(align.get(i)), cand.get(i));
+                    if(!cand.get(i).isEmpty()) {
+                        double s = getProdProb(sources.get(align.get(i)), cand.get(i));
+//                        System.out.println(sources.get(align.get(i))+" ||| "+cand.get(i)+" "+s);
+                        score *= s;
+                    }
                 }
                 sum += score;
             }
 
             results.put(cand.stream().filter(x -> !x.isEmpty()).collect(joining(" ")), sum);
         }
+//        System.out.println(results);
 
         List<String> sorted = results.entrySet().stream()
                 .sorted((x1, x2) -> Double.compare(x2.getValue(), x1.getValue()))
@@ -1042,6 +1056,7 @@ public class TitleTranslator {
             else
                 preds = generatePhrase(pair.getFirst(), model);
 
+            preds = preds.stream().filter(x -> !x.isEmpty()).collect(Collectors.toList());
 
             int bestindex = -1;
 
@@ -1050,6 +1065,7 @@ public class TitleTranslator {
                 gold = Arrays.asList(pair.getSecond()).stream().collect(joining(" "));
                 List<String> refs = Arrays.asList(gold);
                 totalf1 += Utils.GetFuzzyF1(preds.get(0), refs);
+//                System.out.println(totalf1+" "+refs.get(0)+" ||| "+preds.get(0));
             }
 
             int index = preds.indexOf(gold);
@@ -1064,13 +1080,14 @@ public class TitleTranslator {
                 }
             }
         }
+
         double mrr = correctmrr / (double)pairs.size();
         double acc = correctacc / (double)pairs.size();
         double f1 = totalf1 / (double)pairs.size();
 
         System.out.println("AVGMRR=" + mrr);
         System.out.println("AVGACC=" + acc);
-        System.out.println("AVGF1 =" + f1);
+        System.out.printf("AVGF1 = %.2f\n", f1*100);
 
         return f1;
     }
@@ -1134,6 +1151,7 @@ public class TitleTranslator {
 //        ExecutorService executor = Executors.newFixedThreadPool(20);
         for(Pair<String, String> pair: pairs) {
             double score = getProdProb(pair.getFirst(), pair.getSecond());
+//            System.out.println(pair+" "+score);
             TransUtils.addToMap(pair.getFirst(), pair.getSecond(), score, en2fo2prob);
 //            executor.execute(new GenProbWorker(pair));
         }
@@ -1248,18 +1266,21 @@ public class TitleTranslator {
                     pairprob *= en2fo2prob.get(wpair.getFirst()).get(wpair.getSecond());
 
                 }
+
                 double pa = lm2a2prob.get(tpair.lm).get(a) * pairprob;
                 a2prob.put(a, pa);
                 pas_sum += pa;
             }
 
             for (String a : a2prob.keySet()) {
+                // P(alignment | this title pair) under the current parameters
                 double ap = a2prob.get(a) / pas_sum;
                 TransUtils.addToMap(tpair.lm, a, ap, lm2a2c);
                 TransUtils.addToMap(tpair.lm, ap, lm2c);
 
                 for(Pair<String, String> wpair: tpair.align2pairs.get(a)){
 
+                    // update the word generation prob based on alignments
                     TransUtils.addToMap(wpair.getFirst(), wpair.getSecond(), ap, e2f2c);
                     TransUtils.addToMap(wpair.getFirst(), ap, e2c);
 
@@ -1398,7 +1419,7 @@ public class TitleTranslator {
 
 
 
-    public void jointTrainAlignTrans(String infile, String testfile, String devfile, String modelfile){
+    public Pair<Double, Integer> jointTrainAlignTrans(String infile, String testfile, String devfile, String modelfile){
 
         List<Pair<String[], String[]>> test_pairs = TransUtils.readPairs(testfile);
         List<Pair<String[], String[]>> train_pairs = TransUtils.readPairs(infile);
@@ -1420,7 +1441,7 @@ public class TitleTranslator {
 //        System.exit(-1);
 
 
-        int iter = 10;
+        int iter = 20;
         double max_f1 = 0, tf = 0;
         int max_iter = 0;
         for(int i = 0; i < iter; i++) {
@@ -1446,6 +1467,7 @@ public class TitleTranslator {
             System.out.println("Best iteration: "+max_iter+" f1: dev "+max_f1+" test "+tf);
         }
         writeProbs(modelfile);
+        return new Pair<Double, Integer>(tf, test_pairs.size());
 
 //        evalModel(test_pairs, modelfile);
 //        writeAlignProbs(modelfile+".align");
@@ -1467,17 +1489,27 @@ public class TitleTranslator {
         String dir = "/shared/corpora/ner/transliteration/"+lang+"/";
 
 
+        double total_f1 = 0;
+        int total_pair = 0;
+
+        String suffix = "";
+
         for(String type: types) {
-            String infile = dir+type+"/train.select";
-            String testfile = dir + type + "/test.select";
-            String devfile = dir + type + "/dev.select";
+            String infile = dir+type+"/train.select"+suffix;
+            String testfile = dir + type + "/test.select"+suffix;
+            String devfile = dir + type + "/dev.select"+suffix;
 //            tt.printJanusData(infile, testfile, lang, type);
 //        String modelfile = "/shared/corpora/ner/gazetteers/"+lang+"/model/probsss";
             String modelfile = dir + type + "/models/new";
 //            tt.alignAndLearn(infile, testfile, modelfile);
 
-            tt.jointTrainAlignTrans(infile, testfile, devfile, modelfile);
+            Pair<Double, Integer> results = tt.jointTrainAlignTrans(infile, testfile, devfile, modelfile);
+            total_f1 += results.getFirst()*results.getSecond();
+            total_pair += results.getSecond();
         }
+
+        System.out.printf("%.2f\n", total_f1*100/total_pair);
+
 //        tt.evalModel(testfile, modelfile);
     }
 }
