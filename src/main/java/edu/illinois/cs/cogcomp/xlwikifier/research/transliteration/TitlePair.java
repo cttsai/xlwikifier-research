@@ -3,10 +3,7 @@ package edu.illinois.cs.cogcomp.xlwikifier.research.transliteration;
 
 import edu.illinois.cs.cogcomp.core.datastructures.Pair;
 
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 import static java.util.stream.Collectors.joining;
 
@@ -64,16 +61,24 @@ public class TitlePair {
 //                }
 //            }
 
+
+            Set<Integer> used_tgt = new HashSet<>();
+            boolean bad = false;
             // source word
             for (int j = 0; j < m; j++) {
                 String targetwords = "";
                 int n_t = 0;
-                int pre_idx = -1;
+
+                // find the aligned tgt words
                 for (int i = 0; i < l; i++) {
                     if (assign.get(i) == j) {
+                        if(used_tgt.contains(i)){
+                            bad = true;
+                        }
+
+                        used_tgt.add(i);
                         targetwords += tgt_title[i];
                         n_t++;
-                        pre_idx = i;
                     }
                 }
 
@@ -84,7 +89,8 @@ public class TitlePair {
             }
 
 
-            if(wordpairs.size() == m)
+//            if(wordpairs.size() == m)
+//            if(!bad)
                 align2pairs.put(akey, wordpairs);
         }
 

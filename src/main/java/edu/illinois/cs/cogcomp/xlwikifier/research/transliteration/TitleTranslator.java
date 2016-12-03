@@ -911,6 +911,7 @@ public class TitleTranslator {
 
         Map<String, Double> results = new HashMap<>();
 
+        // cand phrase
         for(List<String> cand: target_cands){
 
             double sum = 0;
@@ -921,8 +922,8 @@ public class TitleTranslator {
 
                 double score = lm2a2prob.get(lm).get(a);
 //                System.out.println(score);
-                for(int i = 0; i < sources.size(); i++) {
-                    if(!cand.get(i).isEmpty()) {
+                for(int i = 0; i < align.size(); i++) {
+                    if(!cand.get(i).isEmpty() && align.get(i) < n) {
                         double s = getProdProb(sources.get(align.get(i)), cand.get(i));
 //                        System.out.println(sources.get(align.get(i))+" ||| "+cand.get(i)+" "+s);
                         score *= s;
@@ -1441,7 +1442,7 @@ public class TitleTranslator {
 //        System.exit(-1);
 
 
-        int iter = 20;
+        int iter = 10;
         double max_f1 = 0, tf = 0;
         int max_iter = 0;
         for(int i = 0; i < iter; i++) {

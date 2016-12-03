@@ -141,11 +141,13 @@ public class ColumnFormatReader {
             e.printStackTrace();
         }
         for(String line: lines){
+            System.out.println(line);
             if(line.contains("-DOCSTART-")) continue;
             if(line.trim().isEmpty()){
                 if(surfaces.size()>0 && (sen_ends.size() == 0 || surfaces.size()!= sen_ends.get(sen_ends.size()-1)))
                     sen_ends.add(surfaces.size());
                 if(mention != null && mention_start!=-1 && mention_end!=-1){
+                    System.out.println("add");
                     mentions.add(createMention(docid));
                 }
             }
@@ -217,6 +219,7 @@ public class ColumnFormatReader {
             logger.info("# wikifier features doesn't match # tokens!");
             System.exit(-1);
         }
+        System.out.println("3");
         return doc;
     }
 
@@ -224,11 +227,17 @@ public class ColumnFormatReader {
     public List<QueryDocument> readDir(String dir, boolean skip_nomen) {
         List<QueryDocument> docs = new ArrayList<>();
         File folder = new File(dir);
+        int cnt = 0;
         for(File f: folder.listFiles()){
+            System.out.println(cnt++);
+            if(!f.getName().equals("NW_SZE_HUN_004193_20060602.conll"))
+                continue;
+            logger.info("Reading "+f.getName());
             QueryDocument doc = readFile(f);
             if(!skip_nomen || doc.mentions.size()>0) {
                 docs.add(doc);
             }
+            logger.info("Done");
         }
         logger.info("#docs:"+docs.size());
         logger.info("#nes:"+docs.stream().flatMap(x -> x.mentions.stream()).count());

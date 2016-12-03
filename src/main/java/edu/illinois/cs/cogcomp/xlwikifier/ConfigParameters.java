@@ -71,6 +71,8 @@ public class ConfigParameters {
                 ranker_models.put(l, rm.getString(key).trim());
                 ranker_ner.put(l, rm.getString(key).trim());
             }
+            else
+                ranker_ner.put(l, ranker_models.get("es")); // hack
 
 //            key = l+"_ner_ranker";
 //            if(rm.containsKey(key))
