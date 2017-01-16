@@ -14,6 +14,7 @@ import java.util.*;
 public class TransUtils {
 
     public static String del = "\\s+";
+	public static boolean all_length = false;
     private static final int l_th = 15;
 
     /**

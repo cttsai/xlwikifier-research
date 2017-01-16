@@ -9,6 +9,7 @@ import org.h2.store.fs.FileUtils;
 
 import java.io.FileNotFoundException;
 import java.util.*;
+import java.io.*;
 
 import static java.util.stream.Collectors.joining;
 import static java.util.stream.Collectors.toList;
@@ -18,16 +19,7 @@ import static java.util.stream.Collectors.toList;
  */
 public class Evaluator {
 
-    /**
-     * Read word translation from a file, and evaluate it
-     * @param testfile
-     * @param predfile
-     */
-    public static Pair<Double, Integer> evalSequitur(String testfile, String predfile){
-
-        System.out.println("Evaluating Sequitur prediction: "+predfile);
-        List<Pair<String[], String[]>> test_pairs = TransUtils.readPairs(testfile);
-
+	public static Map<String, List<String>> readSequiturOutput(String predfile){
         Map<String, List<String>> preds = new HashMap<>();
 
         try {
@@ -48,6 +40,20 @@ public class Evaluator {
         } catch (FileNotFoundException e) {
             e.printStackTrace();
         }
+		return preds;
+	}
+
+    /**
+     * Read word translation from a file, and evaluate it
+     * @param testfile
+     * @param predfile
+     */
+    public static Pair<Double, Integer> evalSequitur(String testfile, String predfile){
+
+        System.out.println("Evaluating Sequitur prediction: "+predfile);
+        List<Pair<String[], String[]>> test_pairs = TransUtils.readPairs(testfile);
+
+		Map<String, List<String>> preds = readSequiturOutput(predfile);
 
         return evalModelPred(test_pairs, preds);
     }
@@ -241,7 +247,7 @@ public class Evaluator {
     }
 
 
-    public static void trainAndTestJeff(String trainfile, String devfile,String testfile){
+    public static void trainAndTestJeff(String trainfile, String devfile,String testfile, String modelpath){
 
         TitleTranslator tt = new TitleTranslator();
         List<Pair<String[], String[]>> test_pairs = TransUtils.readPairs(testfile);
@@ -253,12 +259,20 @@ public class Evaluator {
             Example exp = new Example(pair.getFirst()[0], pair.getSecond()[0]);
             training.add(exp);
         }
-
+	
         double max_f1 = 0;
         double best_test = 0;
         for(int iter = 1; iter <=5; iter++) {
             SPModel model = new SPModel(training);
             model.Train(iter);
+			try{
+				model.WriteProbs(modelpath+"-iter"+iter);
+			}catch(IOException e){
+            	e.printStackTrace();
+			}
+			JointModel jm = new JointModel();
+			jm.spmodel = model;
+			tt.current_model = jm;
             double df1 = tt.evalModel(dev_pairs, model, null);
             double tf1 = tt.evalModel(test_pairs, model, null);
             if(df1 > max_f1){
@@ -277,7 +291,7 @@ public class Evaluator {
 //        String lang = args[1];
 //        String type = args[2];
         List<String> types = Arrays.asList("loc", "org", "per");
-        List<String> langs = Arrays.asList("tr", "tl", "es", "de", "bn", "ta");
+        List<String> langs = Arrays.asList(args[1]);
 //        List<String> langs = Arrays.asList("de");
 //        List<String> types = Arrays.asList("loc");
 
@@ -299,7 +313,7 @@ public class Evaluator {
                     f1_sum += results.getFirst()*results.getSecond();
                     n_test += results.getSecond();
                 } else if (system.equals("janus")) {
-                    String predfile = "/shared/experiments/ctsai12/workspace/Agtarbidir/"+lang+"/src.res.agm." + type+".naive";
+                    String predfile = "/shared/experiments/ctsai12/workspace/Agtarbidir/"+lang+".100.100/src.res.agm." + type+".naive";
 
                     if (!FileUtils.exists(predfile)) {
                         System.out.println("skipping " + predfile);
@@ -315,11 +329,21 @@ public class Evaluator {
 //                String goldfile = "/scratch/ctsai12/transliteration/"+lang+"/"+type+"/"+lang+"en/test/all_"+lang+"-en.en";
 //                evalPhrasePred(goldfile, predfile);
                 } else if (system.equals("jeff")) {
-//                    String trainfile = dir + type + "/naive-align/train.4";
-                    String trainfile = dir + type + "/fast-align/train.nodup";
+                    //String trainfile = dir + type + "/naive-align/train.4";
+                    String trainfile = dir + type + "/fast-align/train";
                     String devfile = dir + type + "/dev.select";
 
-                    trainAndTestJeff(trainfile, devfile, testfile);
+					try{
+						File f = new File(dir+type+"/models");
+						if(!f.isDirectory())
+							f.mkdir();
+					}catch(Exception e){
+						e.printStackTrace();
+					}
+
+					String modelpath = dir+type+"/models/jeff.palign";
+
+                    trainAndTestJeff(trainfile, devfile, testfile, modelpath);
                 }
             }
 

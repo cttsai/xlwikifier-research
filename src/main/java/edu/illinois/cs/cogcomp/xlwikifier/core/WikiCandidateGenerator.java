@@ -33,6 +33,8 @@ public class WikiCandidateGenerator {
     public BTreeMap<Object[], Float> t2p2prob;
     public BTreeMap<Object[], Float> w2t2prob;
     public BTreeMap<Object[], Float> t2w2prob;
+    public BTreeMap<Object[], Float> fg2t2prob;
+    public BTreeMap<Object[], Float> t2fg2prob;
 
     private String lang;
     private Map<String, String> title2id, id2redirect;
@@ -48,9 +50,13 @@ public class WikiCandidateGenerator {
     public WikiCandidateGenerator(String lang, boolean read_only) {
         loadDB(lang, read_only);
         tokenizer = MultiLingualTokenizer.getTokenizer(lang);
-        if (!lang.equals("en"))
-            en_generator = new WikiCandidateGenerator("en", true);
+        //if (!lang.equals("en"))
+            //en_generator = new WikiCandidateGenerator("en", true);
     }
+
+	public void setTokenizer(Tokenizer t){
+		tokenizer = t;
+	}
 
     public void setId2Redirect(Map<String, String> map) {
         this.id2redirect = map;
@@ -82,10 +88,15 @@ public class WikiCandidateGenerator {
                         .open();
                 t2w2prob = db.treeMap("t2w", new SerializerArray(Serializer.STRING), Serializer.FLOAT)
                         .open();
+                fg2t2prob = db.treeMap("fg2t", new SerializerArray(Serializer.STRING), Serializer.FLOAT)
+                        .open();
+                t2fg2prob = db.treeMap("t2fg", new SerializerArray(Serializer.STRING), Serializer.FLOAT)
+                        .open();
             } else {
                 db = DBMaker.fileDB(new File(dbfile))
                         .closeOnJvmShutdown()
                         .make();
+				/*
                 p2t2prob = db.treeMap("p2t", new SerializerArray(Serializer.STRING), Serializer.FLOAT)
                         .create();
                 t2p2prob = db.treeMap("t2p", new SerializerArray(Serializer.STRING), Serializer.FLOAT)
@@ -93,6 +104,11 @@ public class WikiCandidateGenerator {
                 w2t2prob = db.treeMap("w2t", new SerializerArray(Serializer.STRING), Serializer.FLOAT)
                         .create();
                 t2w2prob = db.treeMap("t2w", new SerializerArray(Serializer.STRING), Serializer.FLOAT)
+                        .create();
+						*/
+                fg2t2prob = db.treeMap("fg2t", new SerializerArray(Serializer.STRING), Serializer.FLOAT)
+                        .create();
+                t2fg2prob = db.treeMap("t2fg", new SerializerArray(Serializer.STRING), Serializer.FLOAT)
                         .create();
             }
             db_pool.put(lang, db);
@@ -159,6 +175,20 @@ public class WikiCandidateGenerator {
         return cands;
     }
 
+    public List<WikiCand> genCandidate1(String surface) {
+        surface = surface.toLowerCase().trim();
+
+        //List<WikiCand> cands = getCandsBySurface(surface);
+        List<WikiCand> cands = getCandidateByWord(surface, 30);
+		//cands.addAll(cands1);
+		if(cands.size() < 30){
+			List<WikiCand> cands2 = getCandidateByNgram(surface, 30);
+			cands.addAll(cands2);
+		}
+
+        return cands.subList(0,Math.min(30,cands.size()));
+    }
+
 
     /**
      * surface must be lowercased
@@ -204,6 +234,49 @@ public class WikiCandidateGenerator {
         return dist;
     }
 
+    public List<WikiCand> getCandidateByNgram(String surface, int max_cand) {
+        List<WikiCand> cands = new ArrayList<>();
+        String[] tokens = null;
+        if (lang.equals("zh"))
+            tokens = surface.split("·");
+        else
+            tokens = tokenizer.getTextAnnotation(surface).getTokens();
+
+		Map<String, WikiCand> t2c = new HashMap();
+
+        int each_word_top = max_cand / (surface.length()) * 2;
+        for (String t : tokens) {
+			for(int i = 0; i < t.length()-3; i++){
+				String ngram = t.substring(i, i+4);
+
+				NavigableMap<Object[], Float> ctitles = fg2t2prob.subMap(new Object[]{ngram}, new Object[]{ngram, null});
+
+				List<Map.Entry<Object[], Float>> sorted_cands = ctitles.entrySet().stream()
+					.sorted((x1, x2) -> Float.compare(x2.getValue(), x1.getValue()))
+					.collect(Collectors.toList()).subList(0, Math.min(ctitles.size(), each_word_top));
+
+				for (Map.Entry<Object[], Float> c : sorted_cands) {
+					String title = (String) c.getKey()[1];
+					if(!t2c.containsKey(title)){
+						int dist = getEditDistance(title, surface);
+						double s = 1;
+						if (dist != 0) s = 1.0 / dist;
+						WikiCand cand = new WikiCand(title, s);
+						cand.psgivent = t2fg2prob.get(new Object[]{title, ngram});
+						cand.ptgivens = c.getValue();
+						cand.lang = lang;
+						cand.src = "ngram";
+						cand.query_surface = surface;
+						cands.add(cand);
+
+						t2c.put(title, cand);
+					}
+				}
+			}
+        }
+        cands = cands.stream().sorted((x1, x2) -> Double.compare(x2.ptgivens, x1.ptgivens)).collect(toList());
+        return cands.subList(0, Math.min(cands.size(), max_cand));
+    }
 
     public List<WikiCand> getCandidateByWord(String surface, int max_cand) {
         List<WikiCand> cands = new ArrayList<>();
@@ -213,7 +286,7 @@ public class WikiCandidateGenerator {
         else
             tokens = tokenizer.getTextAnnotation(surface).getTokens();
 //            tokens = surface.split("\\s+");
-        int each_word_top = max_cand / tokens.length;
+        int each_word_top = max_cand; /// tokens.length;
         for (String t : tokens) {
 
             NavigableMap<Object[], Float> ctitles = w2t2prob.subMap(new Object[]{t}, new Object[]{t, null});
@@ -274,6 +347,100 @@ public class WikiCandidateGenerator {
 //        }
 //        return ret;
 //    }
+//
+    private void populate4gram2Title(String file, String lang) {
+        logger.info("Populating " + lang + " candidate database from " + file);
+        if (db == null)
+            loadDB(lang, false);
+
+        fg2t2prob.clear();
+        t2fg2prob.clear();
+
+        Map<String, List<String>> s2t = new HashMap<>();
+        Map<String, List<String>> t2s = new HashMap<>();
+
+        try {
+            for (String line : LineIO.read(file)) {
+
+                String[] sp = line.split("\t");
+                if (sp.length < 2) continue;
+                String s = sp[0].toLowerCase().trim();
+                String t = getFinalTitle(sp[1]);
+
+                String[] tokens;
+                if (lang.equals("zh")) {
+                    tokens = s.split("·");
+//                    t = ChineseHelper.convertToSimplifiedChinese(t);
+                }
+                else
+                    tokens = tokenizer.getTextAnnotation(s).getTokens();
+
+                for (String ss : tokens) {
+					for(int i = 0; i < ss.length()-3; i++){
+						String ngram = ss.substring(i, i+4);
+						if (!s2t.containsKey(ngram))
+							s2t.put(ngram, new ArrayList<>());
+						s2t.get(ngram).add(t);
+						if (!t2s.containsKey(t))
+							t2s.put(t, new ArrayList<>());
+						t2s.get(t).add(ngram);
+					}
+                }
+//                }
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        logger.info("s2t size " + s2t.size());
+        logger.info("t2s size " + t2s.size());
+
+        for (String title : t2s.keySet()) {
+            String[] title_tokens = null;
+            if (lang.equals("zh"))
+                title_tokens = title.toLowerCase().split("·");
+            else
+                title_tokens = title.toLowerCase().split("_");
+
+            for (String token : title_tokens) {
+				for(int i = 0; i < token.length()-3; i++){
+					String ngram = token.substring(i, i+4);
+					if (!s2t.containsKey(ngram))
+						s2t.put(ngram, new ArrayList<>());
+					s2t.get(ngram).add(title);
+					t2s.get(title).add(ngram);
+				}
+            }
+        }
+
+        logger.info("Calculating p(title | word)...");
+        int cnt = 0;
+        for (String surface : s2t.keySet()) {
+            cnt++;
+            if (cnt % 10000 == 0)
+                System.out.print(cnt * 100.0 / s2t.size() + "\r");
+            Map<String, Long> t2cnt = s2t.get(surface).stream().collect(groupingBy(x -> x, counting()));
+            float sum = 0;
+            for (String title : t2cnt.keySet()) {
+                sum += t2cnt.get(title);
+            }
+            for (String title : t2cnt.keySet()) {
+                fg2t2prob.put(new Object[]{surface, title}, t2cnt.get(title) / sum);
+            }
+        }
+
+        logger.info("Calculating p(word | title)...");
+        for (String title : t2s.keySet()) {
+            Map<String, Long> s2cnt = t2s.get(title).stream().collect(groupingBy(x -> x, counting()));
+            float sum = 0;
+            for (String surface : s2cnt.keySet()) {
+                sum += s2cnt.get(surface);
+            }
+            for (String surface : s2cnt.keySet()) {
+                t2fg2prob.put(new Object[]{title, surface}, s2cnt.get(surface) / sum);
+            }
+        }
+
+    }
 
     private void populateWord2Title(String file, String lang) {
         logger.info("Populating " + lang + " candidate database from " + file);
@@ -378,8 +545,9 @@ public class WikiCandidateGenerator {
         dr.readTitle2ID(page_file, lang);
         this.setId2Redirect(dr.id2redirect);
         this.setTitle2Id(dr.title2id);
-        populateMentionDB(cand_file, lang);
-        populateWord2Title(cand_file, lang);
+        //populateMentionDB(cand_file, lang);
+        //populateWord2Title(cand_file, lang);
+        populate4gram2Title(cand_file, lang);
         db.commit();
         db.close();
     }

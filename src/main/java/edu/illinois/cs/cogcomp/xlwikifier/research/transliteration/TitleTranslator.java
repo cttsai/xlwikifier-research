@@ -21,24 +21,35 @@ import static java.util.stream.Collectors.toList;
 public class TitleTranslator {
 
 
-    private Map<String,Map<String, Double>> s2t2prob = new HashMap<>();
-    private Map<String,Map<String, Double>> t2s2prob = new HashMap<>();
+	public int freq_th = 10;
+	public double align_th = 0.4;
+	public static String lang;
 
-    private Map<String, Map<String, Double>> ilm2j2prob = new HashMap<>();
-    private Map<String, Map<String, Double>> e2f2prob = new HashMap<>();
+	public JointModel current_model;
 
-    private Map<String, Map<String, Double>> lm2a2prob = new HashMap<>();
-    private Map<String, Map<String, Double>> lm2a2c = new HashMap<>();
-    private Map<String, Double> lm2c = new HashMap<>();
+    private Map<String,Map<String, Double>> s2t2prob;
+    private Map<String,Map<String, Double>> t2s2prob;
 
-    private List<Map<String, List<Pair<String, String>>>> a2pairs = new ArrayList<>();
+    private Map<String, Map<String, Double>> ilm2j2prob;
+    private Map<String, Map<String, Double>> e2f2prob;
+
+    private Map<String, Map<String, Double>> lm2a2prob;
+    private Map<String, Map<String, Double>> lm2a2c;
+
+    private Map<String, Double> lm2c;
+    private Map<String, Map<String, Double>> m2a2c;
+    private Map<String, Double> m2c;
+
+    private Map<String, Map<String, Double>> m2a2prob;
+
+    private List<Map<String, List<Pair<String, String>>>> a2pairs;
 
 
-    private Map<String, Map<String, Double>> en2fo2prob = new HashMap<>();
-    private Map<String, Map<String, Double>> ilm2j2c = new HashMap<>();
-    private Map<String, Double> ilm2c = new HashMap<>();
-    private Map<String, Double> e2c = new HashMap<>();
-    private Map<String, Map<String, Double>> e2f2c = new HashMap<>();
+    private Map<String, Map<String, Double>> en2fo2prob;
+    private Map<String, Map<String, Double>> ilm2j2c;
+    private Map<String, Double> ilm2c;
+    private Map<String, Double> e2c;
+    private Map<String, Map<String, Double>> e2f2c;
 
 
     private Map<String, Double> memorization;
@@ -70,8 +81,6 @@ public class TitleTranslator {
     private boolean eval_align = true;
 
     private Map<String, SPModel> type2model;
-
-
 
     private LanguageModel lm;
 
@@ -106,9 +115,9 @@ public class TitleTranslator {
         type2model = new HashMap<>();
         List<String> types = Arrays.asList("loc", "org", "per");
         for(String type: types) {
-            String modelfile = "/shared/corpora/ner/gazetteers/" + lang + "/model/" + type + ".joint";
+            String dir = "/shared/corpora/ner/gazetteers/" + lang + "/" + type + "/models/best1/";
             try {
-                type2model.put(type, new SPModel(modelfile));
+                type2model.put(type, new SPModel(dir));
             } catch (IOException e) {
                 e.printStackTrace();
             }
@@ -232,41 +241,6 @@ public class TitleTranslator {
         return total;
     }
 
-    public double getProdProb(String source, String target){
-
-        if(source.isEmpty() && target.isEmpty())
-            return 1;
-
-        if(source.isEmpty() || target.isEmpty())
-            return 0;
-
-        String key = source+"|"+target;
-        if(memorization.containsKey(key))
-            return memorization.get(key);
-
-
-        double probsum = 0;
-        for(int i = 1; i <= source.length(); i++){
-            String src_head = source.substring(0, i);
-            String src_tail = source.substring(i, source.length());
-            for(int j = 1; j <=target.length(); j++){
-                String tgt_head = target.substring(0, j);
-                String tgt_tail = target.substring(j, target.length());
-
-                double prob = getProdProb(src_tail, tgt_tail);
-//                if(prob == 0) continue;
-
-                if(!s2t2prob.containsKey(src_head) || !s2t2prob.get(src_head).containsKey(tgt_head))
-                    continue;
-//                    return 0;
-                probsum += s2t2prob.get(src_head).get(tgt_head)*prob;
-            }
-        }
-
-        memorization.put(key, probsum);
-        return probsum;
-
-    }
 
     public double updateProdProb(String source, String target, Map<String, Map<String, Double>> prodprob){
 
@@ -445,14 +419,15 @@ public class TitleTranslator {
             }
         }
 
+		/*
         for(String t: t2s2prob.keySet()){
             for(String s: t2s2prob.get(t).keySet()){
                 if(newprob1.containsKey(t) && newprob1.get(t).containsKey(s))
                     t2s2prob.get(t).put(s, newprob1.get(t).get(s));
             }
-        }
+        }*/
         normalizeProbTGivenS();
-        TransUtils.normalizeProb(t2s2prob);
+        //TransUtils.normalizeProb(t2s2prob);
 //        s2t2prob = newprob;
     }
 
@@ -676,40 +651,13 @@ public class TitleTranslator {
             e.printStackTrace();
         }
     }
-    private void writeProbs(String path){
-        System.out.println("Writing probs...");
-
-        int idx = path.lastIndexOf("/");
-        try {
-            FileUtils.forceMkdir(new File(path.substring(0, idx)));
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
-
-        try {
-            BufferedWriter bw = new BufferedWriter(new FileWriter(path));
-            for(String s: s2t2prob.keySet()){
-                for(String t: s2t2prob.get(s).keySet()){
-                    if(!s.trim().isEmpty() && !t.trim().isEmpty()) {
-                        Double val = s2t2prob.get(s).get(t);
-                        if(val>0.0000000001)
-                            bw.write(s + "\t" + t + "\t" + s2t2prob.get(s).get(t) + "\n");
-                    }
-                }
-            }
-            bw.close();
-
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
-    }
     /**
      * Re-implementation of Jeff's transliterator
      * @param pairs
      */
     public void trainTransliterateProb(List<Pair<String, String>> pairs, List<Pair<String[], String[]>> test_pairs, String modelfile){
 
-        int n_iter = 5;
+        int n_iter = 10;
         initProb(pairs);
         normalizeProbTGivenS();
         TransUtils.normalizeProb(t2s2prob);
@@ -730,7 +678,6 @@ public class TitleTranslator {
                 evalModel(test_pairs);
         }
 
-        writeProbs(modelfile);
     }
 
 
@@ -766,7 +713,9 @@ public class TitleTranslator {
 
 //        System.out.println(str);
 //        System.out.println(ret.size());
-        segcache.put(str, ret);
+		synchronized (segcache) {
+			segcache.put(str, ret);
+		}
 
         return ret;
     }
@@ -866,6 +815,8 @@ public class TitleTranslator {
         return aprob_sum;
     }
 
+
+	/*
     public List<String> generatePhraseAlign(String[] parts, SPModel model){
 
         model.setMaxCandidates(2);
@@ -900,11 +851,6 @@ public class TitleTranslator {
                 t.add(targets.get(idx));
             target_cands.add(t);
         }
-
-//        System.out.println("source:");
-//        System.out.println("\t"+sources);
-//        System.out.println("target cands:");
-//        System.out.println("\t"+target_cands);
 
 
         String lm = n+"_"+n;
@@ -943,101 +889,12 @@ public class TitleTranslator {
 
         return sorted;
     }
-
-    /**
-     * For candidate generation in the wikifier
-     * @param source
-     * @param type
-     * @return
-     */
-    public List<String> generatePhrase(String source, String type){
-
-        return generatePhrase(source.toLowerCase().split("\\s+"), type2model.get(type));
-
-    }
-
-    public List<String> generatePhrase(String[] parts, SPModel model){
-        model.setMaxCandidates(20);
-//        if(model1!=null)
-//            model1.setMaxCandidates(10);
-
-        List<String> preds = new ArrayList<>();
-        List<List<String>> predsl = new ArrayList<>();
-
-        String phrase = Arrays.asList(parts).stream().collect(joining(" "));
-        if(phrase_align.containsKey(phrase)){
-            List<String> ret = new ArrayList<>();
-            ret.add(phrase_align.get(phrase));
-            return ret;
-        }
-
-        for(String part: parts) {
-            try {
-                List<Pair<Double, String>> prediction = new ArrayList<>();
-                if(word_align.containsKey(part))
-                    prediction.add(new Pair<>(1.0, word_align.get(part)));
-                prediction.addAll(model.Generate(part).toList());
-
-
-//                prediction = tmp1;
-
-
-//                List<Pair<Double, String>> newscore =  new ArrayList<>();
-//                for(Pair<Double, String> p: prediction){
-//                    newscore.add(new Pair<>(model.Probability(part, p.getSecond()), p.getSecond()));
-//                }
-//
-//                prediction = newscore.stream().sorted((x1, x2) -> Double.compare(x2.getFirst(), x1.getFirst()))
-//                        .collect(Collectors.toList());
-
-//                    if(model1 != null){
-//                        Map<String, Double> t2prob = new HashMap<>();
-//                        for(Pair<Double, String> p: prediction) {
-//                            List<Pair<Double, String>> tmp = model1.Generate(p.getSecond()).toList();
-//                            for(Pair<Double, String> t: tmp){
-//                                if(t.getSecond().equals(part)){
-//                                    t2prob.put(p.getSecond(), t.getFirst());
-//                                }
-//                            }
-//                        }
-//
-//                        List<Map.Entry<String, Double>> sorted = t2prob.entrySet().stream()
-//                                .sorted((x1, x2) -> Double.compare(x2.getValue(), x1.getValue())).collect(Collectors.toList());
-//
-//                        prediction = new ArrayList<>();
-//                        for(Map.Entry<String, Double> s: sorted)
-//                            prediction.add(new Pair<>(s.getValue(), s.getKey()));
-//                    }
-
-
-                for(int i = 0; i < prediction.size(); i++){
-                    if(predsl.size() > i)
-                        predsl.get(i).add(prediction.get(i).getSecond());
-                    else {
-                        List<String> tmp = new ArrayList<>();
-                        tmp.add(prediction.get(i).getSecond());
-                        predsl.add(tmp);
-                    }
-                }
-            } catch (Exception e) {
-                e.printStackTrace();
-            }
-        }
-
-        predsl = predsl.stream().filter(x -> x.size() == parts.length).collect(toList());
-
-
-        // no reorder
-        preds = predsl.stream().map(x -> x.stream().collect(joining(" "))).collect(toList());
-
-        return preds;
-
-    }
+*/
 
 
     public double evalModel(List<Pair<String[], String[]>> pairs, SPModel model, SPModel model1){
 
-        memorization = new HashMap<>();
+        //current_model.memorization = new HashMap<>();
 
         double correctmrr = 0;
         double correctacc = 0;
@@ -1052,10 +909,13 @@ public class TitleTranslator {
 
             List<String> preds;
 
-            if(eval_align)
-                preds = generatePhraseAlign(pair.getFirst(), model);
+            if(eval_align){
+                preds = current_model.generatePhraseAlign(pair.getFirst());
+				if(preds == null)
+                	preds = current_model.generatePhrase(pair.getFirst());
+			}
             else
-                preds = generatePhrase(pair.getFirst(), model);
+                preds = current_model.generatePhrase(pair.getFirst());
 
             preds = preds.stream().filter(x -> !x.isEmpty()).collect(Collectors.toList());
 
@@ -1086,8 +946,8 @@ public class TitleTranslator {
         double acc = correctacc / (double)pairs.size();
         double f1 = totalf1 / (double)pairs.size();
 
-        System.out.println("AVGMRR=" + mrr);
-        System.out.println("AVGACC=" + acc);
+//        System.out.println("AVGMRR=" + mrr);
+//        System.out.println("AVGACC=" + acc);
         System.out.printf("AVGF1 = %.2f\n", f1*100);
 
         return f1;
@@ -1106,8 +966,7 @@ public class TitleTranslator {
 //        SPModel model1 = new SPModel(s2t2prob1);
 //        evalModel(pairs, model1, null);
 
-        SPModel model = new SPModel(s2t2prob);
-        return evalModel(pairs, model, null);
+        return evalModel(pairs, null, null);
 
 //        SPModel model2 = new SPModel(t2s2prob);
 //        evalModel(pairs, model, model2);
@@ -1145,13 +1004,14 @@ public class TitleTranslator {
 
     public void calGenerateProb(List<Pair<String, String>> pairs){
 
-        memorization = new HashMap<>();
+		if(current_model.memorization == null)
+			current_model.memorization = new HashMap<>();
 
         en2fo2prob = new HashMap<>();
 
 //        ExecutorService executor = Executors.newFixedThreadPool(20);
         for(Pair<String, String> pair: pairs) {
-            double score = getProdProb(pair.getFirst(), pair.getSecond());
+            double score = current_model.getProdProb(pair.getFirst(), pair.getSecond());
 //            System.out.println(pair+" "+score);
             TransUtils.addToMap(pair.getFirst(), pair.getSecond(), score, en2fo2prob);
 //            executor.execute(new GenProbWorker(pair));
@@ -1186,8 +1046,10 @@ public class TitleTranslator {
         }
     }
 
+
     private List<TitlePair> initJointProb1(List<Pair<String[], String[]>> pairs){
 
+		// get the most frequent words in the source side
         wcnt = new HashMap<>();
         for(Pair<String[], String[]> p: pairs){
             for(String s: p.getFirst()){
@@ -1227,13 +1089,13 @@ public class TitleTranslator {
                     TransUtils.addToMap(wpair.getFirst(), wpair.getSecond(), 1.0, e2f2prob);
                 }
             }
-
             // initialize transliteration probs
             for(String a: tpair.align2pairs.keySet()) {
                 for(Pair<String, String> p: tpair.align2pairs.get(a)) {
                     initProdProb(p.getFirst(), p.getSecond());
                 }
             }
+
         }
         normalizeProbTGivenS();
 //        TransUtils.normalizeProb(t2s2prob);
@@ -1308,16 +1170,6 @@ public class TitleTranslator {
                 e2f2prob.get(e).put(f, e2f2c.get(e).get(f)/e2c.get(e));
             }
         }
-
-//        int cnt = 0;
-//        for(TitlePair tpair: tpairs) {
-//            for (String a : tpair.align2pairs.keySet()) {
-//                for (Pair<String, String> wpair : tpair.align2pairs.get(a)) {
-//                    wordprobs.set(cnt, wordprobs.get(cnt)*e2f2prob.get(wpair.getFirst()).get(wpair.getSecond()));
-//                    cnt++;
-//                }
-//            }
-//        }
 
         updateProb(train_pairs, wordprobs);
     }
@@ -1419,6 +1271,151 @@ public class TitleTranslator {
 
 
 
+    public void testLoadModel(String testfile, String modeldir){
+
+        List<Pair<String[], String[]>> test_pairs = TransUtils.readPairs(testfile);
+
+		current_model = JointModel.loadModel(modeldir);
+
+		double test_f1 = evalModel(test_pairs);
+		System.out.printf("%.2f\n", test_f1*100);
+
+    }
+
+    private List<TitlePair> initJointProb2(List<Pair<String[], String[]>> pairs){
+
+		// get the most frequent words in the source side
+        wcnt = new HashMap<>();
+        for(Pair<String[], String[]> p: pairs){
+            for(String s: p.getFirst()){
+                if(wcnt.containsKey(s))
+                    wcnt.put(s, wcnt.get(s)+1.0);
+                else
+                    wcnt.put(s,1.0);
+            }
+        }
+
+        freq = wcnt.entrySet().stream().sorted((x1, x2) -> Double.compare(x2.getValue(), x1.getValue()))
+                .map(x -> x.getKey())
+                .collect(Collectors.toList())
+                .subList(0, Math.min(wcnt.size(),freq_th));
+
+        List<TitlePair> ret = new ArrayList<>();
+
+		current_model = new JointModel();
+
+		s2t2prob = current_model.s2t2prob;
+		e2f2prob = current_model.e2f2prob;
+		m2a2prob = current_model.m2a2prob;
+		en2fo2prob = current_model.en2fo2prob;
+		m2a2c = current_model.m2a2c;
+		m2c = current_model.m2c;
+		e2c = current_model.e2c;
+		e2f2c = current_model.e2f2c;
+		word_align = current_model.word_align;
+		phrase_align = current_model.phrase_align;
+
+        System.out.println("Initialing probabilities...");
+        int cnt = 0;
+        for(Pair<String[], String[]> pair: pairs) {
+//            System.out.print((cnt++) + " "+pair.getFirst().length+" "+pair.getSecond().length+"\r");
+
+            // for looking up in prediction
+			String src_phrase = Arrays.asList(pair.getFirst()).stream().collect(joining(" "));
+			String tgt_phrase = Arrays.asList(pair.getSecond()).stream().collect(joining(" "));
+			if(!src_phrase.isEmpty() && !tgt_phrase.isEmpty())
+				phrase_align.put(src_phrase, tgt_phrase);
+
+            TitlePair tpair = new TitlePair(pair);
+            tpair.populateAllAssignments1();   // only for this new method
+            ret.add(tpair);
+
+            for(String a: tpair.align2phrasepairs.keySet()){
+                for(List<Pair<String, String>> phrase: tpair.align2phrasepairs.get(a)){
+                	TransUtils.addToMap(tpair.m, a, 1.0, m2a2prob);
+					for(Pair<String, String> wpair: phrase){
+						TransUtils.addToMap(wpair.getFirst(), wpair.getSecond(), 1.0, e2f2prob);
+                    	initProdProb(wpair.getFirst(), wpair.getSecond());
+					}
+                }
+            }
+        }
+        TransUtils.normalizeProb(s2t2prob);
+        TransUtils.normalizeProb(m2a2prob);
+        TransUtils.normalizeProb(e2f2prob);
+        return ret;
+
+    }
+
+    public void updateJointProbs2(List<TitlePair> tpairs){
+
+        List<Pair<String, String>> allpairs = tpairs.stream()
+                .flatMap(x -> x.align2phrasepairs.values().stream().flatMap(y -> y.stream().flatMap(z -> z.stream())))
+                .collect(toList());
+        calGenerateProb(allpairs);
+
+        List<Pair<String, String>> train_pairs = new ArrayList<>();  // transliteration training data
+        List<Double> wordprobs = new ArrayList<>();
+//        System.out.println("Updating q...");
+        for(TitlePair tpair: tpairs){
+
+            Map<String, Double> a2prob = new HashMap<>();
+            double pas_sum = 0;
+
+            for(String a: tpair.align2phrasepairs.keySet()){
+				double pp = 0;
+                for(List<Pair<String, String>> phrase: tpair.align2phrasepairs.get(a)){
+                	double pairprob = 1;
+					for(Pair<String, String> wpair: phrase){
+						pairprob *= en2fo2prob.get(wpair.getFirst()).get(wpair.getSecond());
+					}
+					pp += pairprob;
+
+                }
+
+                double pa = m2a2prob.get(tpair.m).get(a) * pp;
+                a2prob.put(a, pa);
+                pas_sum += pa;
+            }
+
+            for (String a : a2prob.keySet()) {
+                // P(alignment | this title pair) under the current parameters
+                double ap = a2prob.get(a) / pas_sum;
+                TransUtils.addToMap(tpair.m, a, ap, m2a2c);
+                TransUtils.addToMap(tpair.m, ap, m2c);
+                for(List<Pair<String, String>> phrase: tpair.align2phrasepairs.get(a)){
+
+					for(Pair<String, String> wpair: phrase){
+
+						// update the word generation prob based on alignments
+						TransUtils.addToMap(wpair.getFirst(), wpair.getSecond(), ap, e2f2c);
+						TransUtils.addToMap(wpair.getFirst(), ap, e2c);
+
+						if(TitleTranslator.lang.equals("zh") || !freq.contains(wpair.getFirst())) {
+							train_pairs.add(wpair);
+							wordprobs.add(ap);
+						}
+					}
+                }
+            }
+        }
+
+		// Update q(a|m)
+        for(String m: m2a2prob.keySet()){
+            for(String a: m2a2prob.get(m).keySet()){
+                m2a2prob.get(m).put(a, m2a2c.get(m).get(a)/m2c.get(m));
+            }
+        }
+
+        // Update t(f|e)
+        for(String e: e2c.keySet()){
+            for(String f: e2f2c.get(e).keySet()){
+                e2f2prob.get(e).put(f, e2f2c.get(e).get(f)/e2c.get(e));
+            }
+        }
+
+        updateProb(train_pairs, wordprobs);
+    }
 
     public Pair<Double, Integer> jointTrainAlignTrans(String infile, String testfile, String devfile, String modelfile){
 
@@ -1432,7 +1429,7 @@ public class TitleTranslator {
 
         // initialize all probabilities
 //        initJointProb(part_pairs);
-        List<TitlePair> tpairs = initJointProb1(train_pairs);
+        List<TitlePair> tpairs = initJointProb2(train_pairs);
 
 //        int degree_sum = 0;
 //        for(String s: s2t2prob.keySet()){
@@ -1448,7 +1445,7 @@ public class TitleTranslator {
         for(int i = 0; i < iter; i++) {
             System.out.println("---------------- Iteration "+i+"---------------");
 //            updateJointProbs(part_pairs);
-            updateJointProbs1(tpairs);
+            updateJointProbs2(tpairs);
 //            writeProbs(modelfile+".iter"+i);
 //            writeAlignProbs(modelfile+".iter"+i);
 
@@ -1456,8 +1453,12 @@ public class TitleTranslator {
                 List<Map.Entry<String, Double>> p = e2f2prob.get(src).entrySet().stream()
                         .sorted((x1, x2) -> Double.compare(x2.getValue(), x1.getValue()))
                         .collect(Collectors.toList());
-                word_align.put(src, p.get(0).getKey());
+				String tgt_word = p.get(0).getKey();
+				if(p.get(0).getValue() > align_th && !tgt_word.isEmpty())
+                	word_align.put(src, tgt_word);
             }
+        	current_model.memorization = new HashMap<>();
+			current_model.spmodel = new SPModel(s2t2prob);
             double f1 = evalModel(dev_pairs);
             double test_f1 = evalModel(test_pairs);
             if(f1 > max_f1){
@@ -1466,8 +1467,10 @@ public class TitleTranslator {
                 tf = test_f1;
             }
             System.out.println("Best iteration: "+max_iter+" f1: dev "+max_f1+" test "+tf);
+        	System.out.printf("%.2f\n", tf*100);
+			current_model.saveModel(modelfile+"-iter"+i);
         }
-        writeProbs(modelfile);
+        //current_model.saveModel(modelfile);
         return new Pair<Double, Integer>(tf, test_pairs.size());
 
 //        evalModel(test_pairs, modelfile);
@@ -1485,7 +1488,13 @@ public class TitleTranslator {
         if(lang.equals("zh"))
             TransUtils.del = "·";
 
+		if(args.length > 1)
+			TransUtils.all_length = true;
+
+		TitleTranslator.lang = lang;
+
         List<String> types = Arrays.asList("loc", "org", "per");
+        //List<String> types = Arrays.asList("loc");
 
         String dir = "/shared/corpora/ner/transliteration/"+lang+"/";
 
@@ -1495,13 +1504,21 @@ public class TitleTranslator {
 
         String suffix = "";
 
+		/*
+        for(String type: types) {
+            String testfile = dir + type + "/test.select"+suffix;
+            String modelfile = dir + type + "/models/best2-best";
+			tt.testLoadModel(testfile, modelfile);
+		}
+		*/
         for(String type: types) {
             String infile = dir+type+"/train.select"+suffix;
             String testfile = dir + type + "/test.select"+suffix;
             String devfile = dir + type + "/dev.select"+suffix;
 //            tt.printJanusData(infile, testfile, lang, type);
 //        String modelfile = "/shared/corpora/ner/gazetteers/"+lang+"/model/probsss";
-            String modelfile = dir + type + "/models/new";
+            String modelfile = dir + type + "/models/best4";
+			if(TransUtils.all_length) modelfile += ".all";
 //            tt.alignAndLearn(infile, testfile, modelfile);
 
             Pair<Double, Integer> results = tt.jointTrainAlignTrans(infile, testfile, devfile, modelfile);
@@ -1510,7 +1527,6 @@ public class TitleTranslator {
         }
 
         System.out.printf("%.2f\n", total_f1*100/total_pair);
-
 //        tt.evalModel(testfile, modelfile);
     }
 }

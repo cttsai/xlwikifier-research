@@ -308,6 +308,7 @@ public class TitlePairGenerator {
 
         for(String type: types){
             String dir = "/shared/corpora/ner/transliteration/"+lang+"/"+type+"/fast-align";
+            //String dir = "/shared/corpora/ner/transliteration/"+lang+"/"+type+"/naive-align";
             try {
                 String out = "";
                 for(String line: LineIO.read(dir+"/train")){
@@ -400,8 +401,8 @@ public class TitlePairGenerator {
         for(String type: types){
             try {
                 String out1 = "", out2="";
-//                for(String line: LineIO.read(dir+type+"/naive-align/train.4")){
-                for(String line: LineIO.read(dir+type+"/fast-align/train.nodup")){
+                //for(String line: LineIO.read(dir+type+"/naive-align/train.4")){
+                for(String line: LineIO.read(dir+type+"/fast-align/train")){
                     String[] parts = line.split("\t");
                     for(int i = 0; i < parts[0].length(); i++)
                         out1 += parts[0].charAt(i)+" ";
@@ -413,13 +414,13 @@ public class TitlePairGenerator {
 
 //                FileUtils.writeStringToFile(new File(dir+type+"/naive-align/janus/train."+lang), out1, "UTF-8");
 //                FileUtils.writeStringToFile(new File(dir+type+"/naive-align/janus/train.en"), out2, "UTF-8");
-                FileUtils.writeStringToFile(new File(dir+type+"/fast-align/janus/train.nodup."+lang), out1, "UTF-8");
-                FileUtils.writeStringToFile(new File(dir+type+"/fast-align/janus/train.nodup.en"), out2, "UTF-8");
+                FileUtils.writeStringToFile(new File(dir+type+"/fast-align/janus/train."+lang), out1, "UTF-8");
+                FileUtils.writeStringToFile(new File(dir+type+"/fast-align/janus/train.en"), out2, "UTF-8");
 
                 out1 = "";
                 out2="";
 //                for(String line: LineIO.read(dir+type+"/naive-align/dev.4")){
-                for(String line: LineIO.read(dir+type+"/fast-align/dev.nodup")){
+                for(String line: LineIO.read(dir+type+"/fast-align/dev")){
 
                     String[] parts = line.split("\t");
                     for(int i = 0; i < parts[0].length(); i++)
@@ -432,8 +433,8 @@ public class TitlePairGenerator {
 
 //                FileUtils.writeStringToFile(new File(dir+type+"/naive-align/janus/dev."+lang), out1, "UTF-8");
 //                FileUtils.writeStringToFile(new File(dir+type+"/naive-align/janus/dev.en"), out2, "UTF-8");
-                FileUtils.writeStringToFile(new File(dir+type+"/fast-align/janus/dev.nodup."+lang), out1, "UTF-8");
-                FileUtils.writeStringToFile(new File(dir+type+"/fast-align/janus/dev.nodup.en"), out2, "UTF-8");
+                FileUtils.writeStringToFile(new File(dir+type+"/fast-align/janus/dev."+lang), out1, "UTF-8");
+                FileUtils.writeStringToFile(new File(dir+type+"/fast-align/janus/dev.en"), out2, "UTF-8");
 
                 out1 = "";
                 out2="";
@@ -444,7 +445,7 @@ public class TitlePairGenerator {
                     out1 = out1.trim()+"\n";
                 }
 
-//                FileUtils.writeStringToFile(new File(dir+type+"/janus/test.tokens."+lang), out1, "UTF-8");
+                //FileUtils.writeStringToFile(new File(dir+type+"/janus/test.tokens."+lang), out1, "UTF-8");
             } catch (java.io.IOException e) {
                 e.printStackTrace();
             }
@@ -453,20 +454,22 @@ public class TitlePairGenerator {
 
     public static void main(String[] args) {
 
-        List<String> langs = Arrays.asList("tr", "tl", "bn", "ta", "es", "de");
-//        List<String> langs = Arrays.asList("zh", "fr", "it", "he", "ar", "ur", "th");
+//        List<String> langs = Arrays.asList("zh");
+        List<String> langs = Arrays.asList("fr", "it", "he", "ar");
 ///        String lang = args[0];
 
         for(String lang: langs) {
+			if(lang.equals("zh"))
+				TransUtils.del = "·";
             // generate wiki title pairs
 //            genTitlePairs(lang);
 
             // make train, dev, and test splits, as well as naive word alignment baseline
 //            makeData(lang);
 
-            toSequiturData(lang);
+//            toSequiturData(lang);
 //            toDirecTLData(lang);
-//            toJanus(lang);
+            toJanus(lang);
         }
     }
 }
