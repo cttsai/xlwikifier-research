@@ -2,6 +2,7 @@ package edu.illinois.cs.cogcomp.xlwikifier.core;
 
 import com.github.stuxuhai.jpinyin.ChineseHelper;
 import edu.illinois.cs.cogcomp.core.io.LineIO;
+import edu.illinois.cs.cogcomp.tokenizers.ChineseTokenizer;
 import edu.illinois.cs.cogcomp.tokenizers.MultiLingualTokenizer;
 import edu.illinois.cs.cogcomp.tokenizers.Tokenizer;
 import edu.illinois.cs.cogcomp.xlwikifier.ConfigParameters;
@@ -9,7 +10,12 @@ import edu.illinois.cs.cogcomp.xlwikifier.datastructures.ELMention;
 import edu.illinois.cs.cogcomp.xlwikifier.datastructures.QueryDocument;
 import edu.illinois.cs.cogcomp.xlwikifier.datastructures.WikiCand;
 import edu.illinois.cs.cogcomp.core.algorithms.LevensteinDistance;
+import edu.illinois.cs.cogcomp.xlwikifier.research.transliteration.JointModel;
+import edu.illinois.cs.cogcomp.xlwikifier.research.transliteration.MentionPredictor;
+import edu.illinois.cs.cogcomp.xlwikifier.research.transliteration.TitleTranslator;
+import edu.illinois.cs.cogcomp.xlwikifier.research.transliteration.TransUtils;
 import edu.illinois.cs.cogcomp.xlwikifier.wikipedia.DumpReader;
+import edu.stanford.nlp.dcoref.Mention;
 import org.mapdb.*;
 import org.mapdb.serializer.SerializerArray;
 import org.slf4j.Logger;
@@ -46,12 +52,35 @@ public class WikiCandidateGenerator {
     private Tokenizer tokenizer;
     public WikiCandidateGenerator en_generator;
     private static Logger logger = LoggerFactory.getLogger(WikiCandidateGenerator.class);
+    private Map<String, JointModel> trans_models;
+    private ChineseTokenizer ct;
 
     public WikiCandidateGenerator(String lang, boolean read_only) {
+
+        if(lang.equals("zh")) {
+            ct = new ChineseTokenizer();
+            word_search = true;
+        }
+
+        loadTransliterationModels(lang);
         loadDB(lang, read_only);
         tokenizer = MultiLingualTokenizer.getTokenizer(lang);
-        //if (!lang.equals("en"))
-            //en_generator = new WikiCandidateGenerator("en", true);
+        if (!lang.equals("en"))
+            en_generator = new WikiCandidateGenerator("en", true);
+    }
+
+    public void loadTransliterationModels(String lang){
+        // load transliteration model
+        Map<String, Map<String, String>> model_paths = MentionPredictor.loadJointModelPath();
+        if(model_paths.containsKey(lang)) {
+            TitleTranslator.lang = lang;
+            trans_models  = new HashMap<>();
+            for (String type : TransUtils.types) {
+                JointModel m = JointModel.loadModel(model_paths.get(lang).get(type));
+                m.use_lm = true;
+                trans_models.put(type, m);
+            }
+        }
     }
 
 	public void setTokenizer(Tokenizer t){
@@ -88,10 +117,12 @@ public class WikiCandidateGenerator {
                         .open();
                 t2w2prob = db.treeMap("t2w", new SerializerArray(Serializer.STRING), Serializer.FLOAT)
                         .open();
-                fg2t2prob = db.treeMap("fg2t", new SerializerArray(Serializer.STRING), Serializer.FLOAT)
-                        .open();
-                t2fg2prob = db.treeMap("t2fg", new SerializerArray(Serializer.STRING), Serializer.FLOAT)
-                        .open();
+                if(lang.equals("en")) {
+                    fg2t2prob = db.treeMap("fg2t", new SerializerArray(Serializer.STRING), Serializer.FLOAT)
+                            .open();
+                    t2fg2prob = db.treeMap("t2fg", new SerializerArray(Serializer.STRING), Serializer.FLOAT)
+                            .open();
+                }
             } else {
                 db = DBMaker.fileDB(new File(dbfile))
                         .closeOnJvmShutdown()
@@ -123,6 +154,9 @@ public class WikiCandidateGenerator {
             db.close();
         }
         this.lang = null;
+
+        if(en_generator != null)
+            en_generator.closeDB();
     }
 
 
@@ -155,6 +189,12 @@ public class WikiCandidateGenerator {
             if (m.getCandidates().size() == 0) {
                 List<WikiCand> cands = genCandidate(m.getSurface());
 
+                // transliterate mention into English
+                if(cands.size() == 0) {
+                    cands = genCandidateByTransliteration(m.getSurface(), m.getType(), 10);
+                    System.out.println(m.getSurface()+" "+cands.size());
+                }
+
                 cands = cands.subList(0, Math.min(top, cands.size()));
                 m.getCandidates().addAll(cands);
             }
@@ -175,18 +215,49 @@ public class WikiCandidateGenerator {
         return cands;
     }
 
-    public List<WikiCand> genCandidate1(String surface) {
+    public List<WikiCand> genCandidateByTransliteration(String surface, String type, int n) {
+	    type = type.toLowerCase();
+	    if(type.equals("gpe") || type.equals("fac"))
+	        type = "loc";
+
+        surface = surface.toLowerCase().trim();
+        List<WikiCand> cands = new ArrayList<>();
+        if (trans_models != null){
+            String[] words = surface.split("\\s+");
+            if(lang.equals("zh")) {
+                if(type.equals("per"))
+                    words = surface.split("·");
+                else
+                    words = ct.getTextAnnotation(surface).getTokens();
+            }
+            List<String> preds = trans_models.get(type).generatePhraseAlign(words);
+            if(preds == null)
+                preds = trans_models.get(type).generatePhrase(words);
+
+            if(preds != null && preds.size()>0)
+                cands = en_generator.genCandidate1(preds.get(0), n);
+        }
+
+        return cands;
+    }
+
+    public List<WikiCand> genCandidate1(String surface, int n) {
         surface = surface.toLowerCase().trim();
 
-        //List<WikiCand> cands = getCandsBySurface(surface);
-        List<WikiCand> cands = getCandidateByWord(surface, 30);
+        this.top = n;
+        List<WikiCand> cands = getCandsBySurface(surface);
+//        List<WikiCand> cands = new ArrayList<>();
+        if(cands.size() < n) {
+            List<WikiCand> cands1 = getCandidateByWord(surface, n);
+            cands.addAll(cands1);
+        }
 		//cands.addAll(cands1);
-		if(cands.size() < 30){
-			List<WikiCand> cands2 = getCandidateByNgram(surface, 30);
+		if(cands.size() < n){
+			List<WikiCand> cands2 = getCandidateByNgram(surface, n);
 			cands.addAll(cands2);
 		}
 
-        return cands.subList(0,Math.min(30,cands.size()));
+        return cands.subList(0,Math.min(n,cands.size()));
     }
 
 
@@ -275,6 +346,7 @@ public class WikiCandidateGenerator {
 			}
         }
         cands = cands.stream().sorted((x1, x2) -> Double.compare(x2.ptgivens, x1.ptgivens)).collect(toList());
+//        cands = cands.stream().sorted((x1, x2) -> Double.compare(x2.score, x1.score)).collect(toList());
         return cands.subList(0, Math.min(cands.size(), max_cand));
     }
 

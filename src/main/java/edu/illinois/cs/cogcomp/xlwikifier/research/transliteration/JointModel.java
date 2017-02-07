@@ -27,6 +27,9 @@ public class JointModel{
     public Map<String, String> phrase_align;
     public Map<String, Double> memorization;
     public SPModel spmodel;
+    public LanguageModel lm;
+    public boolean all_length = false;
+    public boolean use_lm = true;
 
 	public JointModel(){
 		m2a2prob = new HashMap<>();
@@ -39,6 +42,9 @@ public class JointModel{
 		e2c = new HashMap<>();
 		word_align = new HashMap<>();
 		phrase_align = new HashMap<>();
+
+		lm = new LanguageModel();
+		lm.loadDB(true);
 	}
 
     public void saveModel(String path){
@@ -94,6 +100,9 @@ public class JointModel{
 
     public static JointModel loadModel(String dir){
 
+        String[] dirparts = dir.trim().split("\\s+");
+        dir = dirparts[0];
+
 		JointModel model = new JointModel();
 
 		try{
@@ -140,6 +149,11 @@ public class JointModel{
 
 		model.memorization = new HashMap<>();
 
+		if(dir.contains("all") && dirparts.length > 1 && dirparts[1].equals("real")) {
+            System.out.println(dir);
+            model.all_length = true;
+        }
+
 		return model;
     }
 
@@ -151,7 +165,7 @@ public class JointModel{
 		}
 		*/
 
-        spmodel.setMaxCandidates(2);
+        spmodel.setMaxCandidates(5);
 
         List<String> sources = new ArrayList<>();
         List<String> targets = new ArrayList<>();
@@ -184,9 +198,13 @@ public class JointModel{
 
         int n = sources.size();
 		List<List<String>> target_cands = new ArrayList<>();
-		for(int i = targets.size(); i > 0 && (TransUtils.all_length || i > targets.size()-1); i--){
-			target_cands.addAll(perm(targets, i));
-		}
+//		if(targets.size() < 5) {
+            for (int i = targets.size(); i > 0 && (this.all_length || TransUtils.all_length || i > targets.size() - 1); i--) {
+                target_cands.addAll(perm(targets, i));
+            }
+//        }
+//        else
+//            target_cands.add(targets);
 
 
         String m = String.valueOf(parts.length);
@@ -216,10 +234,14 @@ public class JointModel{
                 sum += score;
             }
 
-			if(!TitleTranslator.lang.equals("zh"))
-				results.put(cand.stream().filter(x -> !x.isEmpty()).collect(joining(" ")), sum);
-			else
-				results.put(cand.stream().filter(x -> !x.isEmpty()).collect(joining("·")), sum);
+            if(!TransUtils.all_length && !all_length) {
+                double prob = lm.getPhraseProb(cand);
+                if(cand.equals(targets))
+                    prob += 1e-9;
+                sum *= prob;
+            }
+
+            results.put(cand.stream().filter(x -> !x.isEmpty()).collect(joining(" ")), sum);
         }
 //        System.out.println(results);
 
@@ -336,10 +358,26 @@ public class JointModel{
             }
         }
 
-        predsl = predsl.stream().filter(x -> x.size() == parts.length).collect(toList());
+//        predsl = predsl.stream().filter(x -> x.size() == parts.length).collect(toList());
 
+        if(use_lm) {
+            Map<List<String>, Double> phrase2score = new HashMap<>();
+            for (List<String> pred : predsl) {
 
-        // no reorder
+                for (List<String> p : TransUtils.perm(pred, pred.size())) {
+                    double prob = lm.getPhraseProb(p);
+                    if (p.equals(pred))
+                        prob += 1e-9;
+                    phrase2score.put(p, prob);
+                }
+                break;
+            }
+
+            predsl = phrase2score.entrySet().stream().sorted((x1, x2) -> Double.compare(x2.getValue(), x1.getValue()))
+                    .map(x -> x.getKey()).collect(toList());
+
+        }
+
         preds = predsl.stream().map(x -> x.stream().collect(joining(" "))).collect(toList());
 
         return preds;

@@ -20,7 +20,7 @@ public class FreeBaseQuery {
     private static DB db;
     public static HTreeMap<String, String[]> mid2types;
     public static HTreeMap<String, String> titlelang2mid;
-    public static HTreeMap<String, String[]> midlang2title;
+    public static HTreeMap<String, String> midlang2title;
 
     public static boolean isloaded() {
         return db != null;
@@ -30,6 +30,8 @@ public class FreeBaseQuery {
 
         String db_file = ConfigParameters.db_path + "/freebase/mapdb";
 //        String db_file = "/shared/bronte/ctsai12/freebase/mapdb-tmp";
+//        String db_file = "/shared/bronte/ctsai12/multilingual/xlwikifier-mapdb/xlwikifier-mapdb/freebase/mapdb";
+
 
         if (read_only) {
             db = DBMaker.fileDB(db_file)
@@ -47,8 +49,15 @@ public class FreeBaseQuery {
                     .keySerializer(Serializer.STRING)
                     .valueSerializer(Serializer.STRING)
                     .open();
+            midlang2title = db.hashMap("midlang2title") // this is not so correct, I made it one to one, but it's actually one to many
+                    .keySerializer(Serializer.STRING)
+                    .valueSerializer(Serializer.STRING)
+                    .open();
         } else {
             db = DBMaker.fileDB(db_file)
+                    .fileChannelEnable()
+                    .allocateStartSize(1024*1024*1024)
+                    .allocateIncrement(1024*1024*1024)
                     .closeOnJvmShutdown()
                     .make();
             mid2types = db.hashMap("mid2types")
@@ -57,7 +66,7 @@ public class FreeBaseQuery {
                     .createOrOpen();
             midlang2title = db.hashMap("midlang2title")
                     .keySerializer(Serializer.STRING)
-                    .valueSerializer(new SerializerArray(Serializer.STRING))
+                    .valueSerializer(Serializer.STRING)
                     .createOrOpen();
             titlelang2mid = db.hashMap("titlelang2mid")
                     .keySerializer(Serializer.STRING)
@@ -114,7 +123,8 @@ public class FreeBaseQuery {
 //                if(!lang2titles.containsKey(lang)) lang2titles.put(lang, new ArrayList<>());
 //                lang2titles.get(lang).add(title);
 //                tl2msink.put(title+"|"+lang, mid);
-                populateTitleLang2Mid(title + "|" + lang, mid);
+//                populateTitleLang2Mid(title + "|" + lang, mid);
+                populateMidLang2Title(mid + "|" + lang, title);
             }
 
             line = br.readLine();
@@ -130,6 +140,10 @@ public class FreeBaseQuery {
         titlelang2mid.put(key, mid);
     }
 
+    public static void populateMidLang2Title(String key, String title) {
+        midlang2title.put(key, title);
+    }
+
     public static void populateMid2Types(String mid, List<String> types) {
         types = types.stream().distinct().collect(toList());
         String[] tmp = new String[types.size()];
@@ -142,7 +156,7 @@ public class FreeBaseQuery {
             List<String> titles = lang2titles.get(lang);
             String[] tmp = new String[titles.size()];
             tmp = titles.toArray(tmp);
-            midlang2title.put(mid + "|" + lang, tmp);
+//            midlang2title.put(mid + "|" + lang, tmp);
         }
     }
 
@@ -189,13 +203,21 @@ public class FreeBaseQuery {
             db.close();
     }
 
-    public static List<String> getTitlesFromMid(String mid, String lang) {
+    public static String getTitlesFromMid(String mid, String lang) {
         String key = mid + "|" + lang;
         if (midlang2title.containsKey(key))
-            return Arrays.asList(midlang2title.get(key));
+            return midlang2title.get(key);
         else
             return null;
     }
+
+//    public static List<String> getTitlesFromMid(String mid, String lang) {
+//        String key = mid + "|" + lang;
+//        if (midlang2title.containsKey(key))
+//            return Arrays.asList(midlang2title.get(key));
+//        else
+//            return null;
+//    }
 
     public static String getMidFromTitle(String title, String lang) {
         title = formatTitle(title);
@@ -251,16 +273,16 @@ public class FreeBaseQuery {
 //                .make();
 //        System.exit(-1);
 
-        ConfigParameters params = new ConfigParameters();
-        params.setPropValues();
-        FreeBaseQuery.loadDB(true);
+        ConfigParameters.setPropValues("config/xlwikifier-tac.config");
 //        try {
-////            FreeBaseQuery.importDump();
+//            FreeBaseQuery.importDump();
 //        } catch (IOException e) {
 //            e.printStackTrace();
 //        }
-        String mid = FreeBaseQuery.getMidFromTitle("中国", "en");
-        System.out.println(mid);
+        String title = FreeBaseQuery.getTitlesFromMid("m.02mjmr", "en");
+        System.out.println(title);
+//        String mid = FreeBaseQuery.getMidFromTitle("Barack_Obama", "en");
+//        System.out.println(mid);
 
     }
 

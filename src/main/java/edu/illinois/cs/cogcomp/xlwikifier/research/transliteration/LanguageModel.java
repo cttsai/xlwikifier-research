@@ -1,10 +1,18 @@
 package edu.illinois.cs.cogcomp.xlwikifier.research.transliteration;
 
 import edu.illinois.cs.cogcomp.core.io.LineIO;
+import edu.illinois.cs.cogcomp.xlwikifier.core.StopWord;
+import org.mapdb.BTreeMap;
+import org.mapdb.DB;
+import org.mapdb.DBMaker;
+import org.mapdb.Serializer;
+import org.mapdb.serializer.SerializerArray;
 
 import java.io.*;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 /**
  * Created by ctsai12 on 10/6/16.
@@ -14,6 +22,8 @@ public class LanguageModel {
     public Map<String, Double> four2prob;
     public Map<String, Double> three2prob;
     public Map<String, Double> two2prob;
+    private DB db;
+    public BTreeMap<String, Double> biprob;
 
     private Map<String, Map<String, Double>>  tri;
     private Map<String, Map<String, Double>>  bi;
@@ -21,6 +31,97 @@ public class LanguageModel {
 
     public LanguageModel(){
         loadModel();
+    }
+
+    public void loadDB(boolean read_only) {
+        String dbfile = "/shared/corpora/ner/transliteration/lm/mapdb1";
+        if (read_only) {
+            db = DBMaker.fileDB(new File(dbfile))
+                    .fileChannelEnable()
+                    .allocateStartSize(1024*1024*1024)
+                    .allocateIncrement(512*1024*1024)
+                    .closeOnJvmShutdown()
+                    .readOnly()
+                    .make();
+            biprob = db.treeMap("bi", Serializer.STRING, Serializer.DOUBLE)
+                    .open();
+        } else {
+            db = DBMaker.fileDB(new File(dbfile))
+                    .closeOnJvmShutdown()
+                    .make();
+            biprob = db.treeMap("bi", Serializer.STRING, Serializer.DOUBLE)
+                    .create();
+        }
+    }
+
+    public void generateNgramCount(){
+
+        loadDB(false);
+
+        Set<String> stops = StopWord.getStopWords("en");
+
+        bi = new HashMap<>();
+        tri = new HashMap<>();
+
+        String file = "/shared/bronte/ctsai12/multilingual/text/en.notitle";
+        try {
+            BufferedReader br = new BufferedReader(new FileReader(file));
+            String line = null;
+            int cnt = 0;
+            while((line = br.readLine())!= null){
+                if(cnt++%10000 == 0) System.out.print("Read "+cnt+" lines\r");
+
+                line = line.toLowerCase().trim();
+
+                String[] tokens = line.trim().split("\\s+");
+
+                for(int i = 0; i < tokens.length; i++){
+                    if(i > 0){
+                        String prev = tokens[i-1];
+                        TransUtils.addToMap(prev, tokens[i], 1.0, bi);
+                    }
+//                    if(i > 1){
+//                        String prev = tokens[i-2]+" "+tokens[i-1];
+//                        TransUtils.addToMap(prev, tokens[i], 1.0, tri);
+//                    }
+                }
+            }
+            br.close();
+
+
+            TransUtils.normalizeProb(tri);
+            TransUtils.normalizeProb(bi);
+
+            String outdir = "/shared/corpora/ner/transliteration/lm/";
+
+//            BufferedWriter bw = new BufferedWriter(new FileWriter(outdir + "tri"));
+//            for(String key1: tri.keySet()){
+//                for(String key2: tri.get(key1).keySet())
+//                    bw.write(key1+"\t"+key2+"\t"+tri.get(key1).get(key2)+"\n");
+//            }
+//            bw.close();
+
+//            BufferedWriter bw = new BufferedWriter(new FileWriter(outdir + "bi"));
+            System.out.println(bi.size());
+            cnt = 0;
+            for(String key1: bi.keySet()){
+                if(cnt++%10000 == 0) System.out.print(cnt+"\r");
+                for(String key2: bi.get(key1).keySet()) {
+                    Double val = bi.get(key1).get(key2);
+                    if(val > 1e-6 && !stops.contains(key2) && !stops.contains(key1))
+//                        bw.write(key1 + "\t" + key2 + "\t" + val + "\n");
+                        biprob.put(key1+" ||| "+key2, val);
+                }
+            }
+            db.commit();
+            db.close();
+//            bw.close();
+        } catch (FileNotFoundException e) {
+            e.printStackTrace();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+
     }
 
     public void generateLM(){
@@ -92,6 +193,21 @@ public class LanguageModel {
         }
     }
 
+    public double getPhraseProb(List<String> words){
+
+        double score = 1;
+
+        for(int i = 1; i < words.size(); i++){
+            String prev = words.get(i-1);
+            double prob = 1e-9;
+            String key = words.get(i-1)+" ||| "+words.get(i);
+            if(biprob.containsKey(key))
+                prob = biprob.get(key);
+            score *= prob;
+        }
+        return score;
+    }
+
     public double getWordProb(String word){
 
         double ret = 1.0;
@@ -142,6 +258,37 @@ public class LanguageModel {
         return ret;
     }
 
+    public void loadModel1(){
+
+        String dir = "/shared/corpora/ner/transliteration/lm/";
+        bi = new HashMap<>();
+        tri = new HashMap<>();
+        System.out.println("Loading language model");
+
+        try {
+//            for(String line: LineIO.read(dir+"/tri")){
+//                String[] parts = line.trim().split("\t");
+//                if(parts.length < 3) continue;
+//                if(!tri.containsKey(parts[0]))
+//                    tri.put(parts[0], new HashMap<>());
+//                Map<String, Double> submap = tri.get(parts[0]);
+//                submap.put(parts[1], Double.parseDouble(parts[2]));
+//            }
+
+            for(String line: LineIO.read(dir+"/bi")){
+                String[] parts = line.trim().split("\t");
+                if(parts.length < 3) continue;
+                if(!bi.containsKey(parts[0]))
+                    bi.put(parts[0], new HashMap<>());
+                Map<String, Double> submap = bi.get(parts[0]);
+                submap.put(parts[1], Double.parseDouble(parts[2]));
+            }
+        } catch (FileNotFoundException e) {
+            e.printStackTrace();
+        }
+        System.out.println("Done");
+    }
+
     public void loadModel(){
 
         String dir = "/shared/preprocessed/ctsai12/multilingual/xlwikifier-data/lm";
@@ -174,9 +321,10 @@ public class LanguageModel {
 
     public static void main(String[] args) {
         LanguageModel lm = new LanguageModel();
-        lm.generateLM();
-        String outdir = "/shared/preprocessed/ctsai12/multilingual/xlwikifier-data/lm";
-        lm.writeModel(outdir);
+        lm.generateNgramCount();
+//        lm.generateLM();
+//        String outdir = "/shared/preprocessed/ctsai12/multilingual/xlwikifier-data/lm";
+//        lm.writeModel(outdir);
 
     }
 

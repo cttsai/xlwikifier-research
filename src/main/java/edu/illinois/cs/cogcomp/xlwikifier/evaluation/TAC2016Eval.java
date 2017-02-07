@@ -4,8 +4,10 @@ import edu.illinois.cs.cogcomp.core.constants.Language;
 import edu.illinois.cs.cogcomp.xlwikifier.*;
 import edu.illinois.cs.cogcomp.xlwikifier.datastructures.ELMention;
 import edu.illinois.cs.cogcomp.xlwikifier.datastructures.QueryDocument;
+import edu.illinois.cs.cogcomp.xlwikifier.freebase.FreeBaseQuery;
 import edu.illinois.cs.cogcomp.xlwikifier.postprocessing.PostProcessing;
 import edu.illinois.cs.cogcomp.xlwikifier.postprocessing.SurfaceClustering;
+import info.bliki.wiki.tags.SourceTag;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -62,6 +64,36 @@ public class TAC2016Eval {
 
     }
 
+    public static void analyzeGold(List<ELMention> golds, String lang){
+
+        int n_nil = 0;
+        int en = 0, es = 0;
+
+        if(lang.equals("zh"))
+            lang = "zh-cn";
+
+        for(ELMention m: golds){
+            if(m.gold_mid.startsWith("NIL")){
+                n_nil++;
+                continue;
+            }
+            String entitle = FreeBaseQuery.getTitlesFromMid(m.gold_mid, "en");
+            String estitle = FreeBaseQuery.getTitlesFromMid(m.gold_mid, lang);
+
+            if(entitle != null)
+                en++;
+            if(estitle != null)
+                es++;
+
+            if(entitle != null && estitle == null)
+                System.out.println(m.getSurface()+" "+entitle+" "+m.gold_mid+" "+m.getDocID());
+        }
+
+        System.out.println("total "+golds.size()+" nil:"+n_nil+" en:"+en+" es:"+es );
+
+
+    }
+
     public static void main(String[] args) {
 
         if(args.length < 2){
@@ -85,6 +117,9 @@ public class TAC2016Eval {
         }
         else
             logger.error("Unknown language: "+args[0]);
+
+        analyzeGold(golds, args[0]);
+        System.exit(-1);
 
         MultiLingualNER mlner = MultiLingualNERManager.buildNerAnnotator(lang, config);
 

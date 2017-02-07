@@ -16,6 +16,8 @@ public class TransUtils {
     public static String del = "\\s+";
 	public static boolean all_length = false;
     private static final int l_th = 15;
+    public static List<String> langs = Arrays.asList("es","de","tr","tl","bn","he","fr","it","ar");
+    public static List<String> types = Arrays.asList("loc", "org", "per");
 
     /**
      * Read pre-processed pairs
@@ -176,6 +178,35 @@ public class TransUtils {
         }
     }
 
+    public static List<List<String>> perm(List<String> input, int level){
+
+        List<List<String>> results = new ArrayList<>();
+
+        if(level == 0){
+            results.add(new ArrayList());
+            return results;
+        }
+
+        for(int i = 0; i < input.size(); i++){
+
+            String a = input.get(i);
+
+            List<String> rest = new ArrayList();
+            for(int j = 0; j < input.size(); j++){
+                if(j!=i)
+                    rest.add(input.get(j));
+            }
+
+            List<List<String>> perms = perm(rest, level-1);
+
+            for(List<String> p: perms)
+                p.add(a);
+
+            results.addAll(perms);
+        }
+
+        return results;
+    }
 
     public static void main(String[] args) {
     }

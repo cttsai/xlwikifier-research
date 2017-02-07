@@ -1,6 +1,8 @@
 package edu.illinois.cs.cogcomp.xlwikifier.research.transliteration;
 import java.io.*;
 import java.util.*;
+
+import edu.illinois.cs.cogcomp.core.io.LineIO;
 import edu.illinois.cs.cogcomp.xlwikifier.ConfigParameters;
 import edu.illinois.cs.cogcomp.transliteration.SPModel;
 
@@ -15,14 +17,16 @@ public class MentionPredictor{
 		Map<String, JointModel> models  = new HashMap<>();
 
         String dir = "/shared/corpora/ner/transliteration/"+lang+"/";
-		String outfile = dir+"canddata1.jeff.palign";
+		String outfile = dir+"canddata1.jeff.falign.new";
 		String origfile = dir+"/canddata1";
 
 		for(String type: types){
 			JointModel tmp = new JointModel();
 			try{
-				tmp.spmodel = new SPModel(dir+type+"/models/jeff.palign");
-			}catch(IOException e){}
+				tmp.spmodel = new SPModel(dir+type+"/models/jeff.falign.new.best");
+			}catch(IOException e){
+				e.printStackTrace();
+			}
 			models.put(type, tmp);
 		}
 		try{
@@ -37,6 +41,8 @@ public class MentionPredictor{
 				String type = parts[1].toLowerCase();
 
 				String[] words = mention.split("\\s+");
+				if(!models.containsKey(type))
+					System.out.println(type);
 				List<String> preds = models.get(type).generatePhrase(words);
 
 				String outstr = "";
@@ -54,17 +60,42 @@ public class MentionPredictor{
 
 	}
 
+	public static Map<String, Map<String, String>> loadJointModelPath(){
+
+		Map<String, Map<String, String>> ret = new HashMap<>();
+
+//		String file = "/shared/corpora/ner/transliteration/joint.model.list";
+		String file = "/shared/corpora/ner/transliteration/joint.model.list.cand";
+
+		String model_pre = "/shared/corpora/ner/transliteration/";
+		try {
+			for(String line: LineIO.read(file)){
+				String[] parts = line.split("\t");
+				if(parts.length < 3) continue;
+				if(!ret.containsKey(parts[0]))
+					ret.put(parts[0], new HashMap<>());
+				ret.get(parts[0]).put(parts[1], model_pre+parts[0]+"/"+parts[1]+"/models/"+parts[2]);
+				//ret.get(parts[0]).put(parts[1], model_pre+parts[0]+"/"+parts[1]+"/models/best6-iter9");
+            }
+		} catch (FileNotFoundException e) {
+			e.printStackTrace();
+		}
+		return ret;
+	}
+
 	public static void runJointModel(String lang){
+
+		Map<String, Map<String, String>> model_paths = loadJointModelPath();
 
 		TitleTranslator.lang = lang;
 		Map<String, JointModel> models  = new HashMap<>();
 
         String dir = "/shared/corpora/ner/transliteration/"+lang+"/";
-		String outfile = dir+"canddata1.joint.best5";
+		String outfile = dir+"canddata1.joint.gogo2";
 		String origfile = dir+"/canddata1";
 
 		for(String type: types){
-			models.put(type, JointModel.loadModel(dir+type+"/models/best5"));
+			models.put(type, JointModel.loadModel(model_paths.get(lang).get(type)));
 		}
 		try{
 			BufferedReader br = new BufferedReader(new FileReader(origfile));
@@ -80,6 +111,7 @@ public class MentionPredictor{
 				String[] words = mention.split("\\s+");
 				List<String> preds = models.get(type).generatePhraseAlign(words);
 				if(preds == null)
+					//|| preds.size()==0 || preds.get(0).trim().isEmpty())
 					preds = models.get(type).generatePhrase(words);
 
 				String outstr = "";
@@ -100,10 +132,15 @@ public class MentionPredictor{
 	public static void main(String[] args){
         ConfigParameters.setPropValues();
 
-		String lang = args[0];
+//		String lang = args[0];
+		List<String> langs = Arrays.asList("de");
 
-//		runJointModel(lang);
-		runJeffModel(lang);
+		for(String lang: langs) {
+//			for(String lang: langs) {
+			System.out.println("======= "+lang+" ========");
+//			runJeffModel(lang);
+			runJointModel(lang);
+		}
 
 	}
 

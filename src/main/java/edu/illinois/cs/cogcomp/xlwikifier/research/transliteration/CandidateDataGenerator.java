@@ -61,7 +61,7 @@ public class CandidateDataGenerator {
         ll.loadDB(lang, true);
 
         WikiDocReader reader = new WikiDocReader();
-        List<QueryDocument> docs = reader.readWikiDocs(lang, 30000);
+        List<QueryDocument> docs = reader.readWikiDocs(lang, 10000);
 		int cnt = 0;
 		for(QueryDocument doc: docs){
 			if((cnt++)%100 == 0) System.out.print(cnt+"\r");

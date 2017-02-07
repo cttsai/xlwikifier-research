@@ -1,7 +1,11 @@
 package edu.illinois.cs.cogcomp.xlwikifier.research.transliteration;
 
 import edu.illinois.cs.cogcomp.core.datastructures.Pair;
+import edu.illinois.cs.cogcomp.core.datastructures.textannotation.TextAnnotation;
 import edu.illinois.cs.cogcomp.core.io.LineIO;
+import edu.illinois.cs.cogcomp.tokenizers.ChineseTokenizer;
+import edu.illinois.cs.cogcomp.tokenizers.MultiLingualTokenizer;
+import edu.illinois.cs.cogcomp.tokenizers.Tokenizer;
 import edu.illinois.cs.cogcomp.xlwikifier.ConfigParameters;
 import edu.illinois.cs.cogcomp.xlwikifier.freebase.FreeBaseQuery;
 import edu.illinois.cs.cogcomp.xlwikifier.wikipedia.LangLinker;
@@ -29,6 +33,16 @@ public class TitlePairGenerator {
 
     private String dir = "/shared/corpora/ner/gazetteers/";
 
+    public static void interSize(){
+        ConfigParameters.setPropValues("config/xlwikifier-tac.config");
+        for(String lang: TransUtils.langs){
+            LangLinker ll = new LangLinker();
+            ll.loadDB(lang, true);
+            System.out.println(lang+" "+ll.to_en.size());
+            ll.closeDB();
+        }
+    }
+
     public static void genTitlePairs(String lang){
 
         ConfigParameters.setPropValues();
@@ -40,6 +54,8 @@ public class TitlePairGenerator {
         Set<String> orgs = new HashSet<>();
         Set<String> locs = new HashSet<>();
 
+
+        ChineseTokenizer ct = new ChineseTokenizer();
 
         String query_lang = lang;
         if(lang.equals("zh")) query_lang = "zh-cn";
@@ -81,12 +97,25 @@ public class TitlePairGenerator {
             if(tt.trim().isEmpty() || ft.trim().isEmpty()) continue;
             if(tt.equals(ft)) continue;
 
-            if(netype.equals("PER"))
-                pers.add(ft+"\t"+tt);
-            else if(netype.equals("ORG"))
-                orgs.add(ft+"\t"+tt);
-            else if(netype.equals("LOC"))
-                locs.add(ft+"\t"+tt);
+            if(netype.equals("PER")) {
+                if(lang.equals("zh"))
+                    ft = ft.replaceAll("·", " ");
+                pers.add(ft + "\t" + tt);
+            }
+            else if(netype.equals("ORG")) {
+                if(lang.equals("zh")) {
+                    TextAnnotation ta = ct.getTextAnnotation(ft);
+                    ft = ta.getTokenizedText();
+                }
+                orgs.add(ft + "\t" + tt);
+            }
+            else if(netype.equals("LOC")) {
+                if(lang.equals("zh")) {
+                    TextAnnotation ta = ct.getTextAnnotation(ft);
+                    ft = ta.getTokenizedText();
+                }
+                locs.add(ft + "\t" + tt);
+            }
         }
 
         System.out.println("#pairs per:"+pers.size()+" org:"+orgs.size()+" loc:"+locs.size());
@@ -172,8 +201,8 @@ public class TitlePairGenerator {
         List<Pair<String[], String[]>> dev_pairs = TransUtils.readPairs(devfile, ndev, np_th);
 
         String d = " ";
-        if(outdir.contains("/zh"))
-            d = "·";
+//        if(outdir.contains("/zh"))
+//            d = "·";
 
         String out = "";
         for(Pair<String[], String[]> pair: train_pairs){
@@ -307,11 +336,11 @@ public class TitlePairGenerator {
 
 
         for(String type: types){
-            String dir = "/shared/corpora/ner/transliteration/"+lang+"/"+type+"/fast-align";
-            //String dir = "/shared/corpora/ner/transliteration/"+lang+"/"+type+"/naive-align";
+//            String dir = "/shared/corpora/ner/transliteration/"+lang+"/"+type+"/fast-align";
+            String dir = "/shared/corpora/ner/transliteration/"+lang+"/"+type+"/naive-align";
             try {
                 String out = "";
-                for(String line: LineIO.read(dir+"/train")){
+                for(String line: LineIO.read(dir+"/train.4")){
 
                     String[] parts = line.split("\t");
                     out += parts[0]+"\t";
@@ -323,7 +352,7 @@ public class TitlePairGenerator {
                 FileUtils.writeStringToFile(new File(dir+"/train.seq"), out, "UTF-8");
 
                 out = "";
-                for(String line: LineIO.read(dir+"/dev")){
+                for(String line: LineIO.read(dir+"/dev.4")){
 
                     String[] parts = line.split("\t");
                     out += parts[0]+"\t";
@@ -348,6 +377,7 @@ public class TitlePairGenerator {
             try {
                 String out = "";
                 for (String line : LineIO.read(dir + type + "/naive-align/train.4")) {
+//                for (String line : LineIO.read(dir + type + "/fast-align/train")) {
 
                     String[] parts = line.split("\t");
                     for (int i = 0; i < parts[0].length(); i++)
@@ -359,9 +389,11 @@ public class TitlePairGenerator {
                 }
 
                 FileUtils.writeStringToFile(new File(dir + type + "/naive-align/train.4.dir"), out, "UTF-8");
+//                FileUtils.writeStringToFile(new File(dir + type + "/fast-align/train.dir"), out, "UTF-8");
 
                 out = "";
                 for (String line : LineIO.read(dir + type + "/naive-align/dev.4")) {
+//                for (String line : LineIO.read(dir + type + "/fast-align/dev")) {
 
                     String[] parts = line.split("\t");
                     for (int i = 0; i < parts[0].length(); i++)
@@ -373,6 +405,7 @@ public class TitlePairGenerator {
                 }
 
                 FileUtils.writeStringToFile(new File(dir + type + "/naive-align/dev.4.dir"), out, "UTF-8");
+//                FileUtils.writeStringToFile(new File(dir + type + "/fast-align/dev.dir"), out, "UTF-8");
 
                 out = "";
                 for (String line : LineIO.read(dir + type + "/test.tokens")) {
@@ -384,7 +417,6 @@ public class TitlePairGenerator {
                     }
                     out = out.trim() + "\n";
                 }
-
                 FileUtils.writeStringToFile(new File(dir + type + "/test.tokens.dir"), out, "UTF-8");
             } catch (java.io.IOException e) {
                 e.printStackTrace();
@@ -401,8 +433,8 @@ public class TitlePairGenerator {
         for(String type: types){
             try {
                 String out1 = "", out2="";
-                //for(String line: LineIO.read(dir+type+"/naive-align/train.4")){
-                for(String line: LineIO.read(dir+type+"/fast-align/train")){
+                for(String line: LineIO.read(dir+type+"/naive-align/train.4")){
+//                for(String line: LineIO.read(dir+type+"/fast-align/train")){
                     String[] parts = line.split("\t");
                     for(int i = 0; i < parts[0].length(); i++)
                         out1 += parts[0].charAt(i)+" ";
@@ -412,15 +444,15 @@ public class TitlePairGenerator {
                     out2 = out2.trim()+"\n";
                 }
 
-//                FileUtils.writeStringToFile(new File(dir+type+"/naive-align/janus/train."+lang), out1, "UTF-8");
-//                FileUtils.writeStringToFile(new File(dir+type+"/naive-align/janus/train.en"), out2, "UTF-8");
-                FileUtils.writeStringToFile(new File(dir+type+"/fast-align/janus/train."+lang), out1, "UTF-8");
-                FileUtils.writeStringToFile(new File(dir+type+"/fast-align/janus/train.en"), out2, "UTF-8");
+                FileUtils.writeStringToFile(new File(dir+type+"/naive-align/janus/train."+lang), out1, "UTF-8");
+                FileUtils.writeStringToFile(new File(dir+type+"/naive-align/janus/train.en"), out2, "UTF-8");
+//                FileUtils.writeStringToFile(new File(dir+type+"/fast-align/janus/train."+lang), out1, "UTF-8");
+//                FileUtils.writeStringToFile(new File(dir+type+"/fast-align/janus/train.en"), out2, "UTF-8");
 
                 out1 = "";
                 out2="";
-//                for(String line: LineIO.read(dir+type+"/naive-align/dev.4")){
-                for(String line: LineIO.read(dir+type+"/fast-align/dev")){
+                for(String line: LineIO.read(dir+type+"/naive-align/dev.4")){
+//                for(String line: LineIO.read(dir+type+"/fast-align/dev")){
 
                     String[] parts = line.split("\t");
                     for(int i = 0; i < parts[0].length(); i++)
@@ -431,10 +463,10 @@ public class TitlePairGenerator {
                     out2 = out2.trim()+"\n";
                 }
 
-//                FileUtils.writeStringToFile(new File(dir+type+"/naive-align/janus/dev."+lang), out1, "UTF-8");
-//                FileUtils.writeStringToFile(new File(dir+type+"/naive-align/janus/dev.en"), out2, "UTF-8");
-                FileUtils.writeStringToFile(new File(dir+type+"/fast-align/janus/dev."+lang), out1, "UTF-8");
-                FileUtils.writeStringToFile(new File(dir+type+"/fast-align/janus/dev.en"), out2, "UTF-8");
+                FileUtils.writeStringToFile(new File(dir+type+"/naive-align/janus/dev."+lang), out1, "UTF-8");
+                FileUtils.writeStringToFile(new File(dir+type+"/naive-align/janus/dev.en"), out2, "UTF-8");
+//                FileUtils.writeStringToFile(new File(dir+type+"/fast-align/janus/dev."+lang), out1, "UTF-8");
+//                FileUtils.writeStringToFile(new File(dir+type+"/fast-align/janus/dev.en"), out2, "UTF-8");
 
                 out1 = "";
                 out2="";
@@ -445,7 +477,7 @@ public class TitlePairGenerator {
                     out1 = out1.trim()+"\n";
                 }
 
-                //FileUtils.writeStringToFile(new File(dir+type+"/janus/test.tokens."+lang), out1, "UTF-8");
+                FileUtils.writeStringToFile(new File(dir+type+"/janus/test.tokens."+lang), out1, "UTF-8");
             } catch (java.io.IOException e) {
                 e.printStackTrace();
             }
@@ -455,20 +487,23 @@ public class TitlePairGenerator {
     public static void main(String[] args) {
 
 //        List<String> langs = Arrays.asList("zh");
-        List<String> langs = Arrays.asList("fr", "it", "he", "ar");
+//        List<String> langs = Arrays.asList("es","de","tr","tl","bn","fr", "it", "he", "ar");
+        List<String> langs = Arrays.asList("zh");
 ///        String lang = args[0];
+        interSize();
+        System.exit(-1);
 
         for(String lang: langs) {
-			if(lang.equals("zh"))
-				TransUtils.del = "·";
+//			if(lang.equals("zh"))
+//				TransUtils.del = "·";
             // generate wiki title pairs
 //            genTitlePairs(lang);
 
             // make train, dev, and test splits, as well as naive word alignment baseline
-//            makeData(lang);
+            makeData(lang);
 
-//            toSequiturData(lang);
-//            toDirecTLData(lang);
+            toSequiturData(lang);
+            toDirecTLData(lang);
             toJanus(lang);
         }
     }

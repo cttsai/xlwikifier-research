@@ -22,7 +22,7 @@ public class TitleTranslator {
 
 
 	public int freq_th = 10;
-	public double align_th = 0.4;
+	public double align_th = 0.2;
 	public static String lang;
 
 	public JointModel current_model;
@@ -78,11 +78,13 @@ public class TitleTranslator {
 
     private Map<Integer, List<List<Integer>>> n2perms;
 
-    private boolean eval_align = true;
+    public boolean eval_align = true;
 
     private Map<String, SPModel> type2model;
 
     private LanguageModel lm;
+
+    private List<Double> test_scores;
 
     public TitleTranslator(){
 
@@ -895,13 +897,9 @@ public class TitleTranslator {
     public double evalModel(List<Pair<String[], String[]>> pairs, SPModel model, SPModel model1){
 
         //current_model.memorization = new HashMap<>();
+        test_scores = new ArrayList<>();
 
-        double correctmrr = 0;
-        double correctacc = 0;
         double totalf1 = 0;
-
-        if(model1!=null)
-            model1.setMaxCandidates(10);
 
         int cnt = 0;
         for(Pair<String[], String[]> pair: pairs){
@@ -919,35 +917,21 @@ public class TitleTranslator {
 
             preds = preds.stream().filter(x -> !x.isEmpty()).collect(Collectors.toList());
 
-            int bestindex = -1;
-
             String gold = null;
             if(preds.size()>0) {
                 gold = Arrays.asList(pair.getSecond()).stream().collect(joining(" "));
                 List<String> refs = Arrays.asList(gold);
-                totalf1 += Utils.GetFuzzyF1(preds.get(0), refs);
+                double f1 = Utils.GetFuzzyF1(preds.get(0), refs);
+                totalf1 += f1;
+                test_scores.add(f1);
 //                System.out.println(totalf1+" "+refs.get(0)+" ||| "+preds.get(0));
             }
+            else
+                test_scores.add(0.0);
 
-            int index = preds.indexOf(gold);
-            if(bestindex == -1 || index < bestindex){
-                bestindex = index;
-            }
-
-            if (bestindex >= 0) {
-                correctmrr += 1.0 / (bestindex + 1);
-                if(bestindex == 0){
-                    correctacc += 1.0;
-                }
-            }
         }
 
-        double mrr = correctmrr / (double)pairs.size();
-        double acc = correctacc / (double)pairs.size();
         double f1 = totalf1 / (double)pairs.size();
-
-//        System.out.println("AVGMRR=" + mrr);
-//        System.out.println("AVGACC=" + acc);
         System.out.printf("AVGF1 = %.2f\n", f1*100);
 
         return f1;
@@ -1277,8 +1261,11 @@ public class TitleTranslator {
 
 		current_model = JointModel.loadModel(modeldir);
 
-		double test_f1 = evalModel(test_pairs);
-		System.out.printf("%.2f\n", test_f1*100);
+		current_model.memorization = new HashMap<>();
+
+		evalModel(test_pairs);
+
+		printTestScores(modeldir+"/test_scores");
 
     }
 
@@ -1394,6 +1381,7 @@ public class TitleTranslator {
 						if(TitleTranslator.lang.equals("zh") || !freq.contains(wpair.getFirst())) {
 							train_pairs.add(wpair);
 							wordprobs.add(ap);
+//                            wordprobs.add(m2a2prob.get(tpair.m).get(a));
 						}
 					}
                 }
@@ -1415,6 +1403,16 @@ public class TitleTranslator {
         }
 
         updateProb(train_pairs, wordprobs);
+    }
+
+    public void printTestScores(String outdir){
+
+        try {
+            FileUtils.writeStringToFile(new File(outdir, "test_scores"),
+                    test_scores.stream().map(x -> x.toString()).collect(joining("\n")), "UTF-8");
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
     }
 
     public Pair<Double, Integer> jointTrainAlignTrans(String infile, String testfile, String devfile, String modelfile){
@@ -1469,6 +1467,7 @@ public class TitleTranslator {
             System.out.println("Best iteration: "+max_iter+" f1: dev "+max_f1+" test "+tf);
         	System.out.printf("%.2f\n", tf*100);
 			current_model.saveModel(modelfile+"-iter"+i);
+			printTestScores(modelfile+"-iter"+i);
         }
         //current_model.saveModel(modelfile);
         return new Pair<Double, Integer>(tf, test_pairs.size());
@@ -1484,49 +1483,50 @@ public class TitleTranslator {
 
         TitleTranslator tt = new TitleTranslator();
 
-        String lang = args[0];
-        if(lang.equals("zh"))
-            TransUtils.del = "·";
+        List<String> langs = Arrays.asList("fr");
 
 		if(args.length > 1)
 			TransUtils.all_length = true;
+//        List<String> types = Arrays.asList("loc", "org", "per");
+        List<String> types = Arrays.asList("org");
 
-		TitleTranslator.lang = lang;
+        Map<String, Map<String, String>> model_paths = MentionPredictor.loadJointModelPath();
 
-        List<String> types = Arrays.asList("loc", "org", "per");
-        //List<String> types = Arrays.asList("loc");
-
-        String dir = "/shared/corpora/ner/transliteration/"+lang+"/";
-
-
-        double total_f1 = 0;
-        int total_pair = 0;
-
-        String suffix = "";
-
-		/*
-        for(String type: types) {
-            String testfile = dir + type + "/test.select"+suffix;
-            String modelfile = dir + type + "/models/best2-best";
-			tt.testLoadModel(testfile, modelfile);
-		}
-		*/
-        for(String type: types) {
-            String infile = dir+type+"/train.select"+suffix;
-            String testfile = dir + type + "/test.select"+suffix;
-            String devfile = dir + type + "/dev.select"+suffix;
-//            tt.printJanusData(infile, testfile, lang, type);
-//        String modelfile = "/shared/corpora/ner/gazetteers/"+lang+"/model/probsss";
-            String modelfile = dir + type + "/models/best4";
-			if(TransUtils.all_length) modelfile += ".all";
-//            tt.alignAndLearn(infile, testfile, modelfile);
-
-            Pair<Double, Integer> results = tt.jointTrainAlignTrans(infile, testfile, devfile, modelfile);
-            total_f1 += results.getFirst()*results.getSecond();
-            total_pair += results.getSecond();
+        for(String lang: langs) {
+            System.out.println("=============== " + lang + " ===================");
+            for (String type : TransUtils.types) {
+                String testfile = "/shared/corpora/ner/transliteration/" + lang + "/" + type + "/test.select";
+                tt.testLoadModel(testfile, model_paths.get(lang).get(type));
+            }
         }
+        System.exit(-1);
+        for(String lang: langs) {
+            System.out.println("=============== "+lang+" ===================");
+            TitleTranslator.lang = lang;
+//            if(lang.equals("zh"))
+//                TransUtils.del = "·";
 
-        System.out.printf("%.2f\n", total_f1*100/total_pair);
-//        tt.evalModel(testfile, modelfile);
+
+            String dir = "/shared/corpora/ner/transliteration/" + lang + "/";
+
+            double total_f1 = 0;
+            int total_pair = 0;
+
+            String suffix = "";
+
+            for (String type : types) {
+                String infile = dir + type + "/train.select" + suffix;
+                String testfile = dir + type + "/test.select" + suffix;
+                String devfile = dir + type + "/dev.select" + suffix;
+                String modelfile = dir + type + "/models/best8";
+                if (TransUtils.all_length) modelfile += ".all";
+
+                Pair<Double, Integer> results = tt.jointTrainAlignTrans(infile, testfile, devfile, modelfile);
+                total_f1 += results.getFirst() * results.getSecond();
+                total_pair += results.getSecond();
+            }
+
+            System.out.printf("%.2f\n", total_f1 * 100 / total_pair);
+        }
     }
 }
