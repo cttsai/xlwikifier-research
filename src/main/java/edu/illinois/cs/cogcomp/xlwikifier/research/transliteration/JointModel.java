@@ -198,13 +198,13 @@ public class JointModel{
 
         int n = sources.size();
 		List<List<String>> target_cands = new ArrayList<>();
-//		if(targets.size() < 5) {
+		if(targets.size() < 5) {
             for (int i = targets.size(); i > 0 && (this.all_length || TransUtils.all_length || i > targets.size() - 1); i--) {
                 target_cands.addAll(perm(targets, i));
             }
-//        }
-//        else
-//            target_cands.add(targets);
+        }
+        else
+            target_cands.add(targets);
 
 
         String m = String.valueOf(parts.length);

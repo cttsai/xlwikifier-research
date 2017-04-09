@@ -1477,9 +1477,19 @@ public class TitleTranslator {
 
     }
 
+    public static void test(List<Integer> l){
+        l.set(0, 2);
+    }
+
 
 
     public static void main(String[] args) {
+
+        List<Integer> x = new ArrayList<>();
+        x.add(1);
+        test(x);
+        System.out.println(x);
+        System.exit(-1);
 
         TitleTranslator tt = new TitleTranslator();
 

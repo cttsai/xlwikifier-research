@@ -118,8 +118,8 @@ public class TAC2016Eval {
         else
             logger.error("Unknown language: "+args[0]);
 
-        analyzeGold(golds, args[0]);
-        System.exit(-1);
+//        analyzeGold(golds, args[0]);
+//        System.exit(-1);
 
         MultiLingualNER mlner = MultiLingualNERManager.buildNerAnnotator(lang, config);
 

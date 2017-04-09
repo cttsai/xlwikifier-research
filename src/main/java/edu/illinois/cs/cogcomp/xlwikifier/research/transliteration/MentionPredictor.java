@@ -64,8 +64,8 @@ public class MentionPredictor{
 
 		Map<String, Map<String, String>> ret = new HashMap<>();
 
-//		String file = "/shared/corpora/ner/transliteration/joint.model.list";
-		String file = "/shared/corpora/ner/transliteration/joint.model.list.cand";
+		String file = "/shared/corpora/ner/transliteration/joint.model.list";
+//		String file = "/shared/corpora/ner/transliteration/joint.model.list.cand";
 
 		String model_pre = "/shared/corpora/ner/transliteration/";
 		try {
@@ -75,7 +75,7 @@ public class MentionPredictor{
 				if(!ret.containsKey(parts[0]))
 					ret.put(parts[0], new HashMap<>());
 				ret.get(parts[0]).put(parts[1], model_pre+parts[0]+"/"+parts[1]+"/models/"+parts[2]);
-				//ret.get(parts[0]).put(parts[1], model_pre+parts[0]+"/"+parts[1]+"/models/best6-iter9");
+//				ret.get(parts[0]).put(parts[1], model_pre+parts[0]+"/"+parts[1]+"/models/best6-iter9");
             }
 		} catch (FileNotFoundException e) {
 			e.printStackTrace();

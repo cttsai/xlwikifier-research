@@ -1,6 +1,5 @@
 package edu.illinois.cs.cogcomp.xlwikifier.core;
 
-import com.github.stuxuhai.jpinyin.ChineseHelper;
 import edu.illinois.cs.cogcomp.core.io.LineIO;
 import edu.illinois.cs.cogcomp.tokenizers.ChineseTokenizer;
 import edu.illinois.cs.cogcomp.tokenizers.MultiLingualTokenizer;
@@ -15,7 +14,6 @@ import edu.illinois.cs.cogcomp.xlwikifier.research.transliteration.MentionPredic
 import edu.illinois.cs.cogcomp.xlwikifier.research.transliteration.TitleTranslator;
 import edu.illinois.cs.cogcomp.xlwikifier.research.transliteration.TransUtils;
 import edu.illinois.cs.cogcomp.xlwikifier.wikipedia.DumpReader;
-import edu.stanford.nlp.dcoref.Mention;
 import org.mapdb.*;
 import org.mapdb.serializer.SerializerArray;
 import org.slf4j.Logger;
@@ -191,6 +189,7 @@ public class WikiCandidateGenerator {
 
                 // transliterate mention into English
                 if(cands.size() == 0) {
+                    System.out.println(m.getSurface());
                     cands = genCandidateByTransliteration(m.getSurface(), m.getType(), 10);
                     System.out.println(m.getSurface()+" "+cands.size());
                 }
@@ -230,6 +229,7 @@ public class WikiCandidateGenerator {
                 else
                     words = ct.getTextAnnotation(surface).getTokens();
             }
+            if(words.length > 5) return cands;
             List<String> preds = trans_models.get(type).generatePhraseAlign(words);
             if(preds == null)
                 preds = trans_models.get(type).generatePhrase(words);
@@ -770,8 +770,10 @@ public class WikiCandidateGenerator {
 
     public static void main(String[] args) {
         ConfigParameters.setPropValues();
-        WikiCandidateGenerator g = new WikiCandidateGenerator("zh", true);
-        System.out.println(g.getCandsBySurface("臺灣"));
+        WikiCandidateGenerator g = new WikiCandidateGenerator("en", true);
+        System.out.println(g.getCandsBySurface("new york"));
+        System.out.println(g.getCandidateByWord("york",10));
+        System.out.println(g.getCandidateByNgram("",10));
         System.exit(-1);
 
         g.closeDB();
