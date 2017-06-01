@@ -1,7 +1,7 @@
 package edu.illinois.cs.cogcomp.xlwikifier.core;
 
+import edu.illinois.cs.cogcomp.annotation.TextAnnotationBuilder;
 import edu.illinois.cs.cogcomp.tokenizers.MultiLingualTokenizer;
-import edu.illinois.cs.cogcomp.tokenizers.Tokenizer;
 import edu.illinois.cs.cogcomp.xlwikifier.datastructures.ELMention;
 import edu.illinois.cs.cogcomp.xlwikifier.datastructures.QueryDocument;
 import edu.illinois.cs.cogcomp.xlwikifier.datastructures.WikiCand;
@@ -22,16 +22,17 @@ public class RankerFeatureManager implements Serializable {
     public LexManager lex;
     public WordEmbedding we;
     private String lang;
-    private LangLinker ll = new LangLinker();
+    private LangLinker ll;
     public TFIDFManager tfidf = new TFIDFManager();
     public String context_lang;
-    public Tokenizer tokenizer;
+    public TextAnnotationBuilder tokenizer;
     public boolean use_foreign_title = true;
     public boolean ner_mode = false;
 
     public RankerFeatureManager(String lang) {
         this.lang = lang;
         this.context_lang = lang;
+        ll = LangLinker.getLangLinker(lang);
         we = new WordEmbedding();
         lex = new LexManager();
 
@@ -222,7 +223,7 @@ public class RankerFeatureManager implements Serializable {
         if (text.trim().isEmpty()) return new ArrayList<>();
         TextAnnotation ta = null;
         try {
-            ta = tokenizer.getTextAnnotation(text);
+            ta = tokenizer.createTextAnnotation(text);
         } catch (Exception e) {
             e.printStackTrace();
             return new ArrayList<>();

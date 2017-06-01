@@ -1437,7 +1437,7 @@ public class TitleTranslator {
 //        System.exit(-1);
 
 
-        int iter = 10;
+        int iter = 30;
         double max_f1 = 0, tf = 0;
         int max_iter = 0;
         for(int i = 0; i < iter; i++) {
@@ -1469,7 +1469,7 @@ public class TitleTranslator {
 			current_model.saveModel(modelfile+"-iter"+i);
 			printTestScores(modelfile+"-iter"+i);
         }
-        //current_model.saveModel(modelfile);
+//        current_model.saveModel(modelfile);
         return new Pair<Double, Integer>(tf, test_pairs.size());
 
 //        evalModel(test_pairs, modelfile);
@@ -1485,31 +1485,25 @@ public class TitleTranslator {
 
     public static void main(String[] args) {
 
-        List<Integer> x = new ArrayList<>();
-        x.add(1);
-        test(x);
-        System.out.println(x);
-        System.exit(-1);
 
         TitleTranslator tt = new TitleTranslator();
 
-        List<String> langs = Arrays.asList("fr");
+        List<String> langs = Arrays.asList("zh");
 
 		if(args.length > 1)
 			TransUtils.all_length = true;
-//        List<String> types = Arrays.asList("loc", "org", "per");
-        List<String> types = Arrays.asList("org");
+        List<String> types = Arrays.asList("loc", "org", "per");
+//        List<String> types = Arrays.asList("org");
 
-        Map<String, Map<String, String>> model_paths = MentionPredictor.loadJointModelPath();
-
-        for(String lang: langs) {
-            System.out.println("=============== " + lang + " ===================");
-            for (String type : TransUtils.types) {
-                String testfile = "/shared/corpora/ner/transliteration/" + lang + "/" + type + "/test.select";
-                tt.testLoadModel(testfile, model_paths.get(lang).get(type));
-            }
-        }
-        System.exit(-1);
+//        Map<String, Map<String, String>> model_paths = MentionPredictor.loadJointModelPath();
+//        for(String lang: langs) {
+//            System.out.println("=============== " + lang + " ===================");
+//            for (String type : TransUtils.types) {
+//                String testfile = "/shared/corpora/ner/transliteration/" + lang + "/" + type + "/test.select";
+//                tt.testLoadModel(testfile, model_paths.get(lang).get(type));
+//            }
+//        }
+//        System.exit(-1);
         for(String lang: langs) {
             System.out.println("=============== "+lang+" ===================");
             TitleTranslator.lang = lang;
@@ -1522,13 +1516,12 @@ public class TitleTranslator {
             double total_f1 = 0;
             int total_pair = 0;
 
-            String suffix = "";
 
             for (String type : types) {
-                String infile = dir + type + "/train.select" + suffix;
-                String testfile = dir + type + "/test.select" + suffix;
-                String devfile = dir + type + "/dev.select" + suffix;
-                String modelfile = dir + type + "/models/best8";
+                String infile = dir + type + "/train.new.more3";
+                String testfile = dir + type + "/test.select";
+                String devfile = dir + type + "/dev.select";
+                String modelfile = dir + type + "/models/new2.more3";
                 if (TransUtils.all_length) modelfile += ".all";
 
                 Pair<Double, Integer> results = tt.jointTrainAlignTrans(infile, testfile, devfile, modelfile);

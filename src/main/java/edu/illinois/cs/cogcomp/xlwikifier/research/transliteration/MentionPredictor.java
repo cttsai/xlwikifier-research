@@ -74,8 +74,8 @@ public class MentionPredictor{
 				if(parts.length < 3) continue;
 				if(!ret.containsKey(parts[0]))
 					ret.put(parts[0], new HashMap<>());
-				ret.get(parts[0]).put(parts[1], model_pre+parts[0]+"/"+parts[1]+"/models/"+parts[2]);
-//				ret.get(parts[0]).put(parts[1], model_pre+parts[0]+"/"+parts[1]+"/models/best6-iter9");
+//				ret.get(parts[0]).put(parts[1], model_pre+parts[0]+"/"+parts[1]+"/models/"+parts[2]);
+				ret.get(parts[0]).put(parts[1], model_pre+parts[0]+"/"+parts[1]+"/models/new1.more3-iter9");
             }
 		} catch (FileNotFoundException e) {
 			e.printStackTrace();
@@ -130,7 +130,11 @@ public class MentionPredictor{
 
 
 	public static void main(String[] args){
-        ConfigParameters.setPropValues();
+		try {
+			ConfigParameters.setPropValues();
+		} catch (IOException e) {
+			e.printStackTrace();
+		}
 
 //		String lang = args[0];
 		List<String> langs = Arrays.asList("de");

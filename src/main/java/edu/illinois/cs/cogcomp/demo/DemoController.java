@@ -1,13 +1,10 @@
 package edu.illinois.cs.cogcomp.demo;
 
+import edu.illinois.cs.cogcomp.annotation.TextAnnotationBuilder;
 import edu.illinois.cs.cogcomp.core.constants.Language;
 import edu.illinois.cs.cogcomp.core.datastructures.textannotation.TextAnnotation;
 import edu.illinois.cs.cogcomp.tokenizers.MultiLingualTokenizer;
-import edu.illinois.cs.cogcomp.tokenizers.Tokenizer;
-import edu.illinois.cs.cogcomp.xlwikifier.CrossLingualWikifier;
-import edu.illinois.cs.cogcomp.xlwikifier.CrossLingualWikifierManager;
-import edu.illinois.cs.cogcomp.xlwikifier.MultiLingualNER;
-import edu.illinois.cs.cogcomp.xlwikifier.MultiLingualNERManager;
+import edu.illinois.cs.cogcomp.xlwikifier.*;
 import org.apache.commons.io.FileUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -26,24 +23,36 @@ import java.io.IOException;
 public class DemoController {
     private static Logger logger = LoggerFactory.getLogger(DemoController.class);
 
-    private String default_config = "config/xlwikifier-demo.config";
+    private static String default_config = "config/xlwikifier-demo.config";
 
     @PostConstruct
     public void initAnnotators(){
 
-        logger.info("Initializing demo");
-        for(Language lang: Language.values()) {
-            logger.info("Initializing " + lang.toString() + " NER and wikification");
-            MultiLingualNER ner = MultiLingualNERManager.buildNerAnnotator(lang, default_config);
-            CrossLingualWikifier wikifier = CrossLingualWikifierManager.buildWikifierAnnotator(lang, default_config);
-
-            Tokenizer tokenizer = MultiLingualTokenizer.getTokenizer(lang.getCode());
-            String sample = readExample(lang);
-
-            TextAnnotation ta = tokenizer.getTextAnnotation(sample);
-            ner.addView(ta);
-            wikifier.addView(ta);
+        try {
+            ConfigParameters.setPropValues(default_config);
+        } catch (IOException e) {
+            e.printStackTrace();
+            System.exit(-1);
         }
+        logger.info("Initializing demo");
+//        for(String lang: ConfigParameters.ranker_models.keySet()) {
+//            if(new File(ConfigParameters.ranker_models.get(lang)).exists()) {
+//
+//                Language language = Language.getLanguageByCode(lang);
+//                String sample = readExample(language);
+//				if(sample == null) continue;
+//
+//                logger.info("Initializing " + lang + " NER and Wikifier");
+//                MultiLingualNER ner = MultiLingualNERManager.buildNerAnnotator(language, default_config);
+//                CrossLingualWikifier wikifier = CrossLingualWikifierManager.buildWikifierAnnotator(language, default_config);
+//
+//                TextAnnotationBuilder tokenizer = MultiLingualTokenizer.getTokenizer(lang);
+//
+//                TextAnnotation ta = tokenizer.createTextAnnotation(sample);
+//                ner.addView(ta);
+//                wikifier.addView(ta);
+//            }
+//        }
     }
 
     private String readExample(Language lang) {
@@ -72,5 +81,18 @@ public class DemoController {
 //        logger.info("Transfer: "+transfer);
 
         return new XLWikifierDemo(text, lang);
+    }
+
+    @CrossOrigin
+    @RequestMapping(value = "/transtitle", method = RequestMethod.POST)
+    public TitleTranslator translateTitle(@RequestParam(value = "query", defaultValue = "") String query,
+                                          @RequestParam(value = "lang", defaultValue = "") String lang,
+                                          HttpServletRequest request) {
+
+        logger.info("Request from: " + request.getRemoteAddr() + " " + request.getRemoteUser());
+        logger.info("Query: " + query);
+        logger.info("Lang: " + lang);
+
+        return new TitleTranslator(query, lang);
     }
 }

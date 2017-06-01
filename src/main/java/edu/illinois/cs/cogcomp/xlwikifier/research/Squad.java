@@ -1,5 +1,6 @@
 package edu.illinois.cs.cogcomp.xlwikifier.research;
 
+import edu.illinois.cs.cogcomp.annotation.TextAnnotationBuilder;
 import edu.illinois.cs.cogcomp.core.io.LineIO;
 import org.apache.commons.io.FileUtils;
 import edu.illinois.cs.cogcomp.xlwikifier.datastructures.ELMention;
@@ -8,13 +9,11 @@ import edu.illinois.cs.cogcomp.xlwikifier.ConfigParameters;
 import org.apache.commons.io.FileUtils;
 import edu.illinois.cs.cogcomp.core.datastructures.textannotation.TextAnnotation;
 import edu.illinois.cs.cogcomp.tokenizers.MultiLingualTokenizer;
-import edu.illinois.cs.cogcomp.tokenizers.Tokenizer;
 import edu.illinois.cs.cogcomp.xlwikifier.freebase.FreeBaseQuery;
 import edu.illinois.cs.cogcomp.xlwikifier.wikipedia.MediaWikiSearch;
 
 import java.io.IOException;
 import java.io.File;
-import java.io.FileNotFoundException;
 import java.util.*;
 import edu.stanford.nlp.util.StringUtils;
 import org.apache.commons.lang3.math.NumberUtils;
@@ -29,7 +28,11 @@ public class Squad{
 	private String outdir;
 
 	public Squad(){
-        ConfigParameters.setPropValues();
+		try {
+			ConfigParameters.setPropValues();
+		} catch (IOException e) {
+			e.printStackTrace();
+		}
 		nerutils = new NERUtils("en");
 		t2fbtypes = new HashMap<>();
 		t2wikitypes = new HashMap<>();
@@ -83,8 +86,8 @@ public class Squad{
 
 	            	FileUtils.writeStringToFile(new File(outdir+"text/"+cnt), text, "UTF-8");
 
-					Tokenizer tokenizer = MultiLingualTokenizer.getTokenizer("en");
-					TextAnnotation ta = tokenizer.getTextAnnotation(text);
+					TextAnnotationBuilder tokenizer = MultiLingualTokenizer.getTokenizer("en");
+					TextAnnotation ta = tokenizer.createTextAnnotation(text);
 					QueryDocument doc = new QueryDocument("");
 					doc.text = text;
 					doc.setTextAnnotation(ta);

@@ -3,6 +3,7 @@ package edu.illinois.cs.cogcomp.xlwikifier;
 import edu.illinois.cs.cogcomp.core.constants.Language;
 import edu.illinois.cs.cogcomp.core.utilities.configuration.ResourceManager;
 import edu.illinois.cs.cogcomp.xlwikifier.freebase.FreeBaseQuery;
+import edu.illinois.cs.cogcomp.xlwikifier.wikipedia.MediaWikiSearch;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -22,7 +23,7 @@ public class ConfigParameters {
     public static Map<String, String> ner_models = new HashMap<>();
     public static Map<String, String> ranker_models = new HashMap<>();
     public static Map<String, String> ranker_ner = new HashMap<>();
-    public static String tac_es_samples, tac_zh_samples;
+    public static String tac_es_samples, tac_zh_samples, tac_en_samples;
     public static String tac_golds;
     public static boolean is_set = false;
     public static String search_cache;
@@ -30,20 +31,19 @@ public class ConfigParameters {
     public static String target_kb;
     private static String config_name;
     public static String liblinear_path = "liblinear-ranksvm-1.95";
+    public static String tac2016_es_eval, tac2016_zh_eval, tac2016_en_eval, tac2016_eval_golds;
+    public static String tac2015_es_eval, tac2015_zh_eval, tac2015_en_eval, tac2015_eval_golds;
+    public static String tac2015_es_train, tac2015_zh_train, tac2015_en_train, tac2015_train_golds;
 
 
-    public static void setPropValues() {
-        String default_config = "config/xlwikifier-demo.config";
+    public static void setPropValues() throws IOException {
+        String default_config = "config/xlwikifier-tac.config";
         setPropValues(default_config);
     }
 
-    public static void setPropValues(String config_file){
+    public static void setPropValues(String config_file) throws IOException {
         ResourceManager rm = null;
-        try {
-            rm = new ResourceManager(config_file);
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
+        rm = new ResourceManager(config_file);
 
         if(!is_set || !config_file.equals(config_name)) {
             logger.info("Loading configuration: " + config_file);
@@ -56,23 +56,28 @@ public class ConfigParameters {
         }
     }
 
-    private static void setPropValues(ResourceManager rm) {
-
+    private static void setPropValues(ResourceManager rm) throws IOException {
 
         // load models configs
         for (Language lang : Language.values()) {
             String l = lang.getCode();
             String key = l + "_ner_config";
-            if (rm.containsKey(key))
+            if (rm.containsKey(key)){
                 ner_models.put(l, rm.getString(key).trim());
+			} else {
+				String default_model = "config/ner/transfer/en-misc.config";
+				ner_models.put(l, default_model);
+			}
 
             key = l + "_ranking_model";
             if (rm.containsKey(key)) {
                 ranker_models.put(l, rm.getString(key).trim());
                 ranker_ner.put(l, rm.getString(key).trim());
-            }
-            else
-                ranker_ner.put(l, ranker_models.get("es")); // hack
+            } else {
+				String default_model = "xlwikifier-data/models/ranker/default/"+l+"/ranker.model";
+                ranker_models.put(l, default_model);
+                ranker_ner.put(l, default_model);
+			}
 
 //            key = l+"_ner_ranker";
 //            if(rm.containsKey(key))
@@ -84,13 +89,16 @@ public class ConfigParameters {
             if (!FreeBaseQuery.isloaded())
                 FreeBaseQuery.loadDB(true);
         }
-        else
+        else {
             logger.error("db_path is required");
-
+            throw new IOException("missing required parameter 'db_path'." );
+        }
         if (rm.containsKey("dump_path"))
             dump_path = rm.getString("dump_path").trim();
         if (rm.containsKey("stopword_path"))
             stopword_path = rm.getString("stopword_path").trim();
+        if (rm.containsKey("tac_en_docs"))
+            tac_en_samples = rm.getString("tac_en_docs").trim();
         if (rm.containsKey("tac_es_docs"))
             tac_es_samples = rm.getString("tac_es_docs").trim();
         if (rm.containsKey("tac_zh_docs"))
@@ -105,11 +113,41 @@ public class ConfigParameters {
             target_kb = rm.getString("target_kb").trim();
         if (rm.containsKey("liblinear_path"))
             liblinear_path = rm.getString("liblinear_path").trim();
+
+        if (rm.containsKey("tac2016_es_eval"))
+            tac2016_es_eval = rm.getString("tac2016_es_eval").trim();
+        if (rm.containsKey("tac2016_zh_eval"))
+            tac2016_zh_eval = rm.getString("tac2016_zh_eval").trim();
+        if (rm.containsKey("tac2016_en_eval"))
+            tac2016_en_eval = rm.getString("tac2016_en_eval").trim();
+        if (rm.containsKey("tac2016_eval_golds"))
+            tac2016_eval_golds = rm.getString("tac2016_eval_golds").trim();
+        if (rm.containsKey("tac2015_es_eval"))
+            tac2015_es_eval = rm.getString("tac2015_es_eval").trim();
+        if (rm.containsKey("tac2015_zh_eval"))
+            tac2015_zh_eval = rm.getString("tac2015_zh_eval").trim();
+        if (rm.containsKey("tac2015_en_eval"))
+            tac2015_en_eval = rm.getString("tac2015_en_eval").trim();
+        if (rm.containsKey("tac2015_eval_golds"))
+            tac2015_eval_golds = rm.getString("tac2015_eval_golds").trim();
+        if (rm.containsKey("tac2015_es_train"))
+            tac2015_es_train = rm.getString("tac2015_es_train").trim();
+        if (rm.containsKey("tac2015_zh_train"))
+            tac2015_zh_train = rm.getString("tac2015_zh_train").trim();
+        if (rm.containsKey("tac2015_en_train"))
+            tac2015_en_train = rm.getString("tac2015_en_train").trim();
+        if (rm.containsKey("tac2015_train_golds"))
+            tac2015_train_golds = rm.getString("tac2015_train_golds").trim();
     }
 
     public static void main(String[] args) {
 
         ConfigParameters param = new ConfigParameters();
-        param.setPropValues();
+        try {
+            param.setPropValues();
+        } catch (IOException e) {
+            e.printStackTrace();
+            System.exit(-1);
+        }
     }
 }

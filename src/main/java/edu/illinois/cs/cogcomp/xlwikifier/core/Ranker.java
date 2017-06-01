@@ -161,8 +161,12 @@ public class Ranker {
     }
 
     public void setWikiTitleByTopCand(ELMention m) {
-        if (m.getCandidates().size() > 0)
+        if (m.getCandidates().size() > 0){
+//            System.out.println(m.getSurface());
+//            for(WikiCand cand: m.getCandidates())
+//                System.out.println("\t"+cand.getTitle()+" "+cand.ptgivens);
             m.setWikiTitle(m.getCandidates().get(0).getTitle());
+        }
         else
             m.setWikiTitle("NIL");
     }
@@ -200,7 +204,6 @@ public class Ranker {
             if (cands.size() > 0) {
                 cands = cands.stream().sorted((x1, x2) -> Double.compare(x2.getScore(), x1.getScore())).collect(toList());
                 m.setCandidates(cands);
-
                 m.setWikiTitle(cands.get(0).getTitle());
                 m.setMidVec(fm.we.getTitleVector(m.getWikiTitle(), cands.get(0).lang));
             } else {
@@ -280,7 +283,12 @@ public class Ranker {
         int n_docs = Integer.parseInt(args[1]);
         String config = args[2];
 
-        ConfigParameters.setPropValues(config);
+        try {
+            ConfigParameters.setPropValues(config);
+        } catch (IOException e) {
+            e.printStackTrace();
+            System.exit(-1);
+        }
 
         if(!new File(ConfigParameters.dump_path).isDirectory()) {
             logger.error("Wikipedia dump is required to train a ranker");

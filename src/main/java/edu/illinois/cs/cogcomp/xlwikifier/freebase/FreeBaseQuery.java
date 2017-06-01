@@ -273,7 +273,14 @@ public class FreeBaseQuery {
 //                .make();
 //        System.exit(-1);
 
-        ConfigParameters.setPropValues("config/xlwikifier-tac.config");
+        ConfigParameters params = new ConfigParameters();
+        try {
+            params.setPropValues();
+        } catch (IOException e) {
+            e.printStackTrace();
+            System.exit(-1);
+        }
+        FreeBaseQuery.loadDB(true);
 //        try {
 //            FreeBaseQuery.importDump();
 //        } catch (IOException e) {

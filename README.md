@@ -3,7 +3,7 @@ Given a piece of text in any language, a cross-lingual wikifier identifies menti
 * <a href="http://cogcomp.cs.illinois.edu/papers/TsaiRo16b.pdf" target="_blank">Cross-Lingual Wikification Using Multilingual Embeddings (Tsai and Roth, NAACL 2016)</a> 
 * <a href="http://cogcomp.cs.illinois.edu/papers/TsaiMaRo16.pdf" target="_blank">Cross-Lingual Named Entity Recognition via Wikification (Tsai et al., CoNLL 2016)</a> 
 
-This <a href="http://bilbo.cs.illinois.edu/~ctsai12/xlwikifier/" target="_blank">demo</a> will give you some intuition about this project.
+This <a href="http://cogcomp.cs.illinois.edu/page/demo_view/xl_wikifier" target="_blank">demo</a> will give you some intuition about this project. The demo is presented in COLING 2016 (the [paper](http://cogcomp.cs.illinois.edu/page/publication_view/809) and [poster](http://cogcomp.cs.illinois.edu/files/posters/poster.pdf))
 
 ### Setup
 
@@ -22,15 +22,23 @@ mvn compile
 This script evaluates Spanish and Chinese performnace on TAC-KBP 2016 EDL shared task. You need to specify the paths to the test documents and the gold annotations in the config file. Check [config/xlwikifier-tac.config](https://github.com/cttsai/illinois-cross-lingual-wikifier/blob/master/config/xlwikifier-tac.config) for example. These documents are in the original format provided by LDC. You will get the following performance on named entities:
 
 ```
+English
+strong mention match:       Precision:0.935 Recall:0.801 F1:0.863
+strong typed mention match: Precision:0.900 Recall:0.771 F1:0.831
+string typed all match:     Precision:0.764 Recall:0.655 F1:0.705
+mention ceaf:               Precision:0.854 Recall:0.732 F1:0.788
+
 Spanish 
-strong mention match:       Precision:0.879 Recall:0.800 F1:0.838
-strong typed mention match: Precision:0.853 Recall:0.777 F1:0.813
-strong typed all match:     Precision:0.769 Recall:0.700 F1:0.733
+strong mention match:       Precision:0.885 Recall:0.806 F1:0.844
+strong typed mention match: Precision:0.859 Recall:0.782 F1:0.819
+string typed all match:     Precision:0.755 Recall:0.688 F1:0.720
+mention ceaf:               Precision:0.822 Recall:0.749 F1:0.784
 
 Chinese
 strong mention match:       Precision:0.868 Recall:0.724 F1:0.789
 strong typed mention match: Precision:0.835 Recall:0.696 F1:0.759
-strong typed all match:     Precision:0.750 Recall:0.625 F1:0.682
+string typed all match:     Precision:0.746 Recall:0.622 F1:0.679
+mention ceaf:               Precision:0.807 Recall:0.673 F1:0.734
 ```
 ### Train NER Model
 

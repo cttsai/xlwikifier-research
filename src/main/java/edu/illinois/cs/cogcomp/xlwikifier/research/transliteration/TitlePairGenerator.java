@@ -1,11 +1,11 @@
 package edu.illinois.cs.cogcomp.xlwikifier.research.transliteration;
 
+import com.github.stuxuhai.jpinyin.ChineseHelper;
 import edu.illinois.cs.cogcomp.core.datastructures.Pair;
 import edu.illinois.cs.cogcomp.core.datastructures.textannotation.TextAnnotation;
 import edu.illinois.cs.cogcomp.core.io.LineIO;
 import edu.illinois.cs.cogcomp.tokenizers.ChineseTokenizer;
 import edu.illinois.cs.cogcomp.tokenizers.MultiLingualTokenizer;
-import edu.illinois.cs.cogcomp.tokenizers.Tokenizer;
 import edu.illinois.cs.cogcomp.xlwikifier.ConfigParameters;
 import edu.illinois.cs.cogcomp.xlwikifier.freebase.FreeBaseQuery;
 import edu.illinois.cs.cogcomp.xlwikifier.wikipedia.LangLinker;
@@ -26,18 +26,21 @@ import static java.util.stream.Collectors.*;
  * Created by ctsai12 on 3/9/16.
  */
 public class TitlePairGenerator {
-    private static final int ntrain = 10000;
-    private static final int ntest = 5000;
-    private static final int ndev = 5000;
+    private static final int ntrain = 80000;
+    private static final int ntest = 30000;
+    private static final int ndev = 30000;
     private static final int np_th = 4;
 
     private String dir = "/shared/corpora/ner/gazetteers/";
 
     public static void interSize(){
-        ConfigParameters.setPropValues("config/xlwikifier-tac.config");
+        try {
+            ConfigParameters.setPropValues("config/xlwikifier-tac.config");
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
         for(String lang: TransUtils.langs){
-            LangLinker ll = new LangLinker();
-            ll.loadDB(lang, true);
+            LangLinker ll = LangLinker.getLangLinker(lang);
             System.out.println(lang+" "+ll.to_en.size());
             ll.closeDB();
         }
@@ -45,17 +48,20 @@ public class TitlePairGenerator {
 
     public static void genTitlePairs(String lang){
 
-        ConfigParameters.setPropValues();
+        try {
+            ConfigParameters.setPropValues("config/xlwikifier-demo.config");
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
 
         FreeBaseQuery.loadDB(true);
-        LangLinker ll = new LangLinker();
-        ll.loadDB(lang, true);
+        LangLinker ll = LangLinker.getLangLinker(lang);
         Set<String> pers = new HashSet<>();
         Set<String> orgs = new HashSet<>();
         Set<String> locs = new HashSet<>();
 
 
-        ChineseTokenizer ct = new ChineseTokenizer();
+        ChineseTokenizer ct = new ChineseTokenizer("/shared/experiments/ctsai12/workspace/stanford-segmenter-2015-04-20/data/");
 
         String query_lang = lang;
         if(lang.equals("zh")) query_lang = "zh-cn";
@@ -98,21 +104,25 @@ public class TitlePairGenerator {
             if(tt.equals(ft)) continue;
 
             if(netype.equals("PER")) {
-                if(lang.equals("zh"))
+                if(lang.equals("zh")) {
                     ft = ft.replaceAll("·", " ");
+                    ft = ChineseHelper.convertToSimplifiedChinese(ft);
+                }
                 pers.add(ft + "\t" + tt);
             }
             else if(netype.equals("ORG")) {
                 if(lang.equals("zh")) {
-                    TextAnnotation ta = ct.getTextAnnotation(ft);
+                    TextAnnotation ta = ct.oldGetTextAnnotation(ft);
                     ft = ta.getTokenizedText();
+                    ft = ChineseHelper.convertToSimplifiedChinese(ft);
                 }
                 orgs.add(ft + "\t" + tt);
             }
             else if(netype.equals("LOC")) {
                 if(lang.equals("zh")) {
-                    TextAnnotation ta = ct.getTextAnnotation(ft);
+                    TextAnnotation ta = ct.oldGetTextAnnotation(ft);
                     ft = ta.getTokenizedText();
+                    ft = ChineseHelper.convertToSimplifiedChinese(ft);
                 }
                 locs.add(ft + "\t" + tt);
             }
@@ -128,9 +138,9 @@ public class TitlePairGenerator {
         List<String> test = per.subList(per.size()*7/10, per.size());
 
         try {
-            FileUtils.writeStringToFile(new File(dir+"per", "train"), train.stream().collect(joining("\n")), "UTF-8");
-            FileUtils.writeStringToFile(new File(dir+"per", "dev"), dev.stream().collect(joining("\n")), "UTF-8");
-            FileUtils.writeStringToFile(new File(dir+"per", "test"), test.stream().collect(joining("\n")), "UTF-8");
+            FileUtils.writeStringToFile(new File(dir+"per", "train.new"), train.stream().collect(joining("\n")), "UTF-8");
+            FileUtils.writeStringToFile(new File(dir+"per", "dev.new"), dev.stream().collect(joining("\n")), "UTF-8");
+            FileUtils.writeStringToFile(new File(dir+"per", "test.new"), test.stream().collect(joining("\n")), "UTF-8");
         } catch (IOException e) {
             e.printStackTrace();
         }
@@ -142,9 +152,9 @@ public class TitlePairGenerator {
         test = loc.subList(loc.size()*7/10, loc.size());
 
         try {
-            FileUtils.writeStringToFile(new File(dir+"loc", "train"), train.stream().collect(joining("\n")), "UTF-8");
-            FileUtils.writeStringToFile(new File(dir+"loc", "dev"), dev.stream().collect(joining("\n")), "UTF-8");
-            FileUtils.writeStringToFile(new File(dir+"loc", "test"), test.stream().collect(joining("\n")), "UTF-8");
+            FileUtils.writeStringToFile(new File(dir+"loc", "train.new"), train.stream().collect(joining("\n")), "UTF-8");
+            FileUtils.writeStringToFile(new File(dir+"loc", "dev.new"), dev.stream().collect(joining("\n")), "UTF-8");
+            FileUtils.writeStringToFile(new File(dir+"loc", "test.new"), test.stream().collect(joining("\n")), "UTF-8");
         } catch (IOException e) {
             e.printStackTrace();
         }
@@ -156,9 +166,9 @@ public class TitlePairGenerator {
         test = org.subList(org.size()*7/10, org.size());
 
         try {
-            FileUtils.writeStringToFile(new File(dir+"org", "train"), train.stream().collect(joining("\n")), "UTF-8");
-            FileUtils.writeStringToFile(new File(dir+"org", "dev"), dev.stream().collect(joining("\n")), "UTF-8");
-            FileUtils.writeStringToFile(new File(dir+"org", "test"), test.stream().collect(joining("\n")), "UTF-8");
+            FileUtils.writeStringToFile(new File(dir+"org", "train.new"), train.stream().collect(joining("\n")), "UTF-8");
+            FileUtils.writeStringToFile(new File(dir+"org", "dev.new"), dev.stream().collect(joining("\n")), "UTF-8");
+            FileUtils.writeStringToFile(new File(dir+"org", "test.new"), test.stream().collect(joining("\n")), "UTF-8");
         } catch (IOException e) {
             e.printStackTrace();
         }
@@ -185,12 +195,12 @@ public class TitlePairGenerator {
         List<String> types = Arrays.asList("loc", "org", "per");
 
         for(String type: types) {
-            String infile = dir + type + "/train";
-            String testfile = dir + type + "/test";
-            String devfile = dir + type + "/dev";
-            printNaiveAlignedPairs(infile, dir + type + "/naive-align/", ntrain, "train");
-            printNaiveAlignedPairs(devfile, dir + type + "/naive-align/", ndev, "dev");
-            printTestTokens(testfile, dir + type + "/test.tokens");
+            String infile = dir + type + "/train.new";
+            String testfile = dir + type + "/test.new";
+            String devfile = dir + type + "/dev.new";
+//            printNaiveAlignedPairs(infile, dir + type + "/naive-align/", ntrain, "train");
+//            printNaiveAlignedPairs(devfile, dir + type + "/naive-align/", ndev, "dev");
+//            printTestTokens(testfile, dir + type + "/test.tokens");
             printSelectedPairs(infile, testfile, devfile, dir + type);
         }
     }
@@ -211,7 +221,7 @@ public class TitlePairGenerator {
             out+=s1+"\t"+s2+"\n";
         }
         try {
-            FileUtils.writeStringToFile(new File(outdir, "train.select"), out, "UTF-8");
+            FileUtils.writeStringToFile(new File(outdir, "train.new.more2"), out, "UTF-8");
         } catch (IOException e) {
             e.printStackTrace();
         }
@@ -223,7 +233,7 @@ public class TitlePairGenerator {
             out+=s1+"\t"+s2+"\n";
         }
         try {
-            FileUtils.writeStringToFile(new File(outdir, "dev.select"), out, "UTF-8");
+            FileUtils.writeStringToFile(new File(outdir, "dev.new.more2"), out, "UTF-8");
         } catch (IOException e) {
             e.printStackTrace();
         }
@@ -235,7 +245,7 @@ public class TitlePairGenerator {
             out+=s1+"\t"+s2+"\n";
         }
         try {
-            FileUtils.writeStringToFile(new File(outdir, "test.select"), out, "UTF-8");
+            FileUtils.writeStringToFile(new File(outdir, "test.new.more2"), out, "UTF-8");
         } catch (IOException e) {
             e.printStackTrace();
         }
@@ -490,8 +500,8 @@ public class TitlePairGenerator {
 //        List<String> langs = Arrays.asList("es","de","tr","tl","bn","fr", "it", "he", "ar");
         List<String> langs = Arrays.asList("zh");
 ///        String lang = args[0];
-        interSize();
-        System.exit(-1);
+//        interSize();
+//        System.exit(-1);
 
         for(String lang: langs) {
 //			if(lang.equals("zh"))
@@ -502,9 +512,9 @@ public class TitlePairGenerator {
             // make train, dev, and test splits, as well as naive word alignment baseline
             makeData(lang);
 
-            toSequiturData(lang);
-            toDirecTLData(lang);
-            toJanus(lang);
+//            toSequiturData(lang);
+//            toDirecTLData(lang);
+//            toJanus(lang);
         }
     }
 }

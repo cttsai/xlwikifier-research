@@ -15,7 +15,6 @@ import edu.illinois.cs.cogcomp.ner.config.NerBaseConfigurator;
 import edu.illinois.cs.cogcomp.xlwikifier.ConfigParameters;
 import edu.illinois.cs.cogcomp.xlwikifier.datastructures.ELMention;
 import edu.illinois.cs.cogcomp.xlwikifier.datastructures.QueryDocument;
-import edu.illinois.cs.cogcomp.xlwikifier.freebase.FreeBaseQuery;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -89,7 +88,6 @@ public class ModelTrainer {
                 System.out.println(qdoc.mentions.size()+" "+nt);
                 System.exit(-1);
             }
-
         }
     }
 
@@ -189,7 +187,12 @@ public class ModelTrainer {
             String test_dir = args[2];
             String lang = args[3];
             String config = args[4];
-            ConfigParameters.setPropValues(config);
+            try {
+                ConfigParameters.setPropValues(config);
+            } catch (IOException e) {
+                e.printStackTrace();
+                System.exit(-1);
+            }
             trainModel(train_dir, test_dir, lang);
         }
         else if(args[0].equals("test")){
@@ -197,7 +200,12 @@ public class ModelTrainer {
             String train_lang = args[2];
             String test_lang = args[3];
             String config = args[4];
-            ConfigParameters.setPropValues(config);
+            try {
+                ConfigParameters.setPropValues(config);
+            } catch (IOException e) {
+                e.printStackTrace();
+                System.exit(-1);
+            }
             testModel(test_dir, train_lang, test_lang);
         }
 

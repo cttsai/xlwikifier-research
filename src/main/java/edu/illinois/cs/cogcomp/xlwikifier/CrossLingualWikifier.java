@@ -9,6 +9,7 @@ import edu.illinois.cs.cogcomp.core.utilities.configuration.ResourceManager;
 import edu.illinois.cs.cogcomp.xlwikifier.core.Ranker;
 import edu.illinois.cs.cogcomp.xlwikifier.datastructures.ELMention;
 import edu.illinois.cs.cogcomp.xlwikifier.datastructures.QueryDocument;
+import edu.illinois.cs.cogcomp.xlwikifier.datastructures.WikiCand;
 import edu.illinois.cs.cogcomp.xlwikifier.mlner.NERUtils;
 import edu.illinois.cs.cogcomp.xlwikifier.postprocessing.PostProcessing;
 import edu.illinois.cs.cogcomp.xlwikifier.postprocessing.SurfaceClustering;
@@ -18,9 +19,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.stream.Collectors;
 
 import static java.util.stream.Collectors.groupingBy;
@@ -35,12 +34,12 @@ public class CrossLingualWikifier extends Annotator {
 
     private final Logger logger = LoggerFactory.getLogger(CrossLingualWikifier.class);
     private Language language;
-    private WikiCandidateGenerator wcg;
+    public WikiCandidateGenerator wcg;
     private Ranker ranker;
-    private LangLinker ll;
     private NERUtils nerutils;
     private String ner_view;
-    private String wikifier_view;
+
+    private List<QueryDocument> processed_docs = new ArrayList<>(); // for cross-doc coref
     public QueryDocument result; // saving results in this datastructure for the demo
 
     /**
@@ -71,7 +70,6 @@ public class CrossLingualWikifier extends Annotator {
         wcg = new WikiCandidateGenerator(lang, true);
         ranker = Ranker.loadPreTrainedRanker(lang, ConfigParameters.ranker_models.get(lang));
         ranker.setNERMode(false);
-        ll = new LangLinker();
 
         nerutils = new NERUtils(lang);
 
@@ -85,7 +83,7 @@ public class CrossLingualWikifier extends Annotator {
             logger.error(ner_view + " is required");
         }
 
-        QueryDocument doc = ta2QueryDoc(textAnnotation);
+        QueryDocument doc = ta2QueryDoc(textAnnotation, ner_view);
 
         PostProcessing.cleanSurface(doc);
 
@@ -93,9 +91,16 @@ public class CrossLingualWikifier extends Annotator {
 
         PostProcessing.fixPerAnnotation(doc);
 
-        SurfaceClustering.cluster(doc);
+        SurfaceClustering.cluster(doc.mentions);
+
+        doc.mentions = doc.mentions.stream()
+                .sorted(Comparator.comparingInt(ELMention::getStartOffset))
+                .collect(Collectors.toList());
 
         doc.mentions.forEach(x -> System.out.println(x));
+
+        // save the result, which is used in generating demo output
+        this.result = doc;
 
         CoreferenceView corefview = new CoreferenceView(getViewName(), textAnnotation);
 
@@ -112,6 +117,10 @@ public class CrossLingualWikifier extends Annotator {
 
         for (String title : title2mentions.keySet()) {
 
+            if ( null == title || "".equals(title) ) {
+                logger.warn("skipping empty title -- presumably, nothing in freebase for some mention in doc {}'", doc.getDocID() );
+                continue;
+            }
             // sort mentions in a cluster by the length of surface forms
             List<ELMention> len_sort = title2mentions.get(title).stream()
                     .sorted((x1, x2) -> Integer.compare(x2.getSurface().length(), x1.getSurface().length()))
@@ -121,7 +130,27 @@ public class CrossLingualWikifier extends Annotator {
             for (ELMention m : len_sort) {
                 int start = textAnnotation.getTokenIdFromCharacterOffset(m.getStartOffset());
                 int end = textAnnotation.getTokenIdFromCharacterOffset(m.getEndOffset() - 1) + 1;
-                Constituent c = new Constituent(title, getViewName(), textAnnotation, start, end);
+                List<WikiCand> elmCandidates = m.getCandidates();
+                Map<String, Double> titleScores = new HashMap<>();
+
+
+                logger.debug("mention Title: {}; {} candidates:", title, elmCandidates.size());
+
+                for ( WikiCand cand : elmCandidates ) {
+                    if (null == cand )
+                        continue;
+                    
+//                    logger.debug("Candidate: {}", cand.toString());
+                    if ( null != cand.getOrigTitle()) {
+                        String candTitle = nerutils.translateToEn(cand.getOrigTitle());
+                        titleScores.put(candTitle, cand.getScore());
+                    }
+                }
+
+                if ( titleScores.isEmpty() ) // could happen if there are only null candidates
+                    titleScores.put(title, 1.0 ); // NIL mention
+
+                Constituent c = new Constituent(titleScores, getViewName(), textAnnotation, start, end);
                 cons.add(c);
             }
 
@@ -130,7 +159,6 @@ public class CrossLingualWikifier extends Annotator {
         }
 
         textAnnotation.addView(getViewName(), corefview);
-
     }
 
     /**
@@ -138,11 +166,11 @@ public class CrossLingualWikifier extends Annotator {
      * @param textAnnotation
      * @return
      */
-    private QueryDocument ta2QueryDoc(TextAnnotation textAnnotation){
+    public static QueryDocument ta2QueryDoc(TextAnnotation textAnnotation, String nerViewName){
         QueryDocument doc = new QueryDocument(textAnnotation.getId());
         doc.setTextAnnotation(textAnnotation);
         doc.text = textAnnotation.getText();
-        for (Constituent c : textAnnotation.getView(ner_view)) {
+        for (Constituent c : textAnnotation.getView(nerViewName)) {
             ELMention m = new ELMention("", c.getStartCharOffset(), c.getEndCharOffset());
             m.setSurface(c.getSurfaceForm());
             m.setType(c.getLabel());
@@ -159,6 +187,7 @@ public class CrossLingualWikifier extends Annotator {
         wcg.genCandidates(doc);
 
         ranker.setWikiTitleByModel(doc);
+//        ranker.setWikiTitleByTopCand(doc);
 
         nerutils.setEnWikiTitle(doc);
 
@@ -167,7 +196,6 @@ public class CrossLingualWikifier extends Annotator {
         if(ConfigParameters.use_search)
             PostProcessing.wikiSearchSolver(doc,language.getCode());
 
-        // save the result, which is used in generating demo output
-        this.result = doc;
+        doc.mentions.forEach(x -> x.cleanFeatureCache());
     }
 }

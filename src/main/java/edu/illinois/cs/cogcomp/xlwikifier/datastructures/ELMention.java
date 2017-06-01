@@ -138,6 +138,10 @@ public class ELMention {
         return this.docid;
     }
 
+	public void setDocID(String id) {
+		this.docid = id;
+	}
+
     public String getType() {
         return this.type;
     }
@@ -179,6 +183,7 @@ public class ELMention {
         return this.cands;
     }
 
+
     public void prepareFeatures(QueryDocument doc, RankerFeatureManager fm, List<ELMention> pms) {
         context30 = fm.getWeightedContextVector(this, doc, 5);
         context100 = fm.getWeightedContextVector(this, doc, 10);
@@ -195,6 +200,18 @@ public class ELMention {
             pre_title_vecs = pms.stream().map(x -> x.getMidVec()).filter(x -> x != null).collect(Collectors.toList());
             pre_title = fm.getTitleAvg(pms);
         }
+    }
+
+    public void cleanFeatureCache(){
+        mid_vec = null;
+        context30 = null;
+        context100 = null;
+        context200 = null;
+        other_ne = null;
+        pre_title = null;
+        pre_title_vecs = null;
+        other_ne_vecs = null;
+        mention_vec = null;
     }
 
     @Override

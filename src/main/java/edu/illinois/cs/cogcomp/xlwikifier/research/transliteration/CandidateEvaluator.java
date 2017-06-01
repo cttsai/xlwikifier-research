@@ -178,7 +178,11 @@ public class CandidateEvaluator{
 
 	public static void main(String[] args){
 
-        ConfigParameters.setPropValues();
+		try {
+			ConfigParameters.setPropValues();
+		} catch (IOException e) {
+			e.printStackTrace();
+		}
 
 		List<String> langs = Arrays.asList("de");
 

@@ -1,12 +1,14 @@
 package edu.illinois.cs.cogcomp.xlwikifier;
 
+import com.github.stuxuhai.jpinyin.ChineseHelper;
+import edu.illinois.cs.cogcomp.annotation.AnnotatorException;
+import edu.illinois.cs.cogcomp.annotation.TextAnnotationBuilder;
 import edu.illinois.cs.cogcomp.core.constants.Language;
 import edu.illinois.cs.cogcomp.core.datastructures.Pair;
 import edu.illinois.cs.cogcomp.core.datastructures.textannotation.Constituent;
 import edu.illinois.cs.cogcomp.core.datastructures.textannotation.CoreferenceView;
 import edu.illinois.cs.cogcomp.core.datastructures.textannotation.TextAnnotation;
 import edu.illinois.cs.cogcomp.tokenizers.MultiLingualTokenizer;
-import edu.illinois.cs.cogcomp.tokenizers.Tokenizer;
 import edu.illinois.cs.cogcomp.xlwikifier.datastructures.ELMention;
 import org.junit.Test;
 
@@ -15,6 +17,7 @@ import java.util.HashMap;
 import java.util.Map;
 
 import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
 
 /**
  * This class runs MultiLigualNER and CrossLingualWikifier on the Spansih and Chinese sample text,
@@ -60,7 +63,7 @@ public class TestAnnotators {
         chinese_answers.put(new Pair<>(24, 26), new ELMention("美国", 24, 26, "GPE", "美国", "united_states"));
         chinese_answers.put(new Pair<>(29, 32), new ELMention("欧巴马", 29, 32, "PER", "贝拉克·奥巴马", "barack_obama"));
         chinese_answers.put(new Pair<>(38, 40), new ELMention("美国", 38, 40, "GPE", "美国", "united_states"));
-        chinese_answers.put(new Pair<>(52, 61), new ELMention("美国夏威夷州檀香山", 52, 61, "GPE", "NIL", "NIL0001"));
+        chinese_answers.put(new Pair<>(52, 61), new ELMention("美国夏威夷州檀香山", 52, 61, "GPE", "NIL", "NIL00001"));
         chinese_answers.put(new Pair<>(75, 80), new ELMention("哈佛法学院", 75, 80, "ORG", "哈佛法学院", "harvard_law_school"));
         chinese_answers.put(new Pair<>(102, 106), new ELMention("伊利诺州", 102, 106, "GPE", "伊利诺伊州", "illinois"));
     }
@@ -70,8 +73,8 @@ public class TestAnnotators {
 
         Language lang = Language.Spanish;
 
-        Tokenizer tokenizer = MultiLingualTokenizer.getTokenizer(lang.getCode());
-        TextAnnotation ta = tokenizer.getTextAnnotation(spanish_input);
+        TextAnnotationBuilder tokenizer = MultiLingualTokenizer.getTokenizer(lang.getCode());
+        TextAnnotation ta = tokenizer.createTextAnnotation(spanish_input);
 
         String config = "config/xlwikifier-demo.config";
 
@@ -82,7 +85,12 @@ public class TestAnnotators {
             e.printStackTrace();
         }
 
-        ner_annotator.addView(ta);
+        try {
+            ner_annotator.getView(ta);
+        } catch (AnnotatorException e) {
+            e.printStackTrace();
+            fail(e.getMessage());
+        }
 
         for (Constituent c : ta.getView(ner_annotator.getViewName()).getConstituents()) {
             Pair<Integer, Integer> key = new Pair<>(c.getStartCharOffset(), c.getEndCharOffset());
@@ -95,16 +103,19 @@ public class TestAnnotators {
         CrossLingualWikifier xlwikifier = null;
         try {
             xlwikifier = new CrossLingualWikifier(lang, config);
-        } catch (IOException e) {
+            xlwikifier.getView(ta);
+        } catch (AnnotatorException | IOException e) {
             e.printStackTrace();
+            fail(e.getMessage());
         }
-
-        xlwikifier.addView(ta);
 
         CoreferenceView corefview = (CoreferenceView) ta.getView(xlwikifier.getViewName());
         for (Constituent c : corefview.getConstituents()) {
             Pair<Integer, Integer> key = new Pair<>(c.getStartCharOffset(), c.getEndCharOffset());
             String gold_entitle = spanish_answers.get(key).getEnWikiTitle();
+            System.out.println( "mention: " + c.getSurfaceForm() + "; Gold title: " + gold_entitle + "; mention Titles:");
+            for ( String title : c.getLabelsToScores().keySet() )
+                System.out.println( title + ":" + c.getLabelsToScores().get(title));
             assertTrue("Entity " + c.getSurfaceForm() + " has English title " + c.getLabel() + " instead of " + gold_entitle,
                     c.getLabel().equals(gold_entitle));
         }
@@ -115,19 +126,21 @@ public class TestAnnotators {
     public void testChineseResults() {
 
         Language lang = Language.Chinese;
-        Tokenizer tokenizer = MultiLingualTokenizer.getTokenizer(lang.getCode());
-        TextAnnotation ta = tokenizer.getTextAnnotation(chinese_input);
+        TextAnnotationBuilder tokenizer = MultiLingualTokenizer.getTokenizer(lang.getCode());
+        String simplified = ChineseHelper.convertToSimplifiedChinese(chinese_input);
+        TextAnnotation ta = tokenizer.createTextAnnotation(simplified);
 
         String config = "config/xlwikifier-demo.config";
 
         MultiLingualNER annotator = null;
         try {
             annotator = new MultiLingualNER(lang, config);
-        } catch (IOException e) {
+            annotator.getView(ta);
+        } catch (IOException | AnnotatorException e) {
             e.printStackTrace();
+            fail(e.getMessage());
         }
 
-        annotator.addView(ta);
 
         for (Constituent c : ta.getView(annotator.getViewName()).getConstituents()) {
             Pair<Integer, Integer> key = new Pair<>(c.getStartCharOffset(), c.getEndCharOffset());
@@ -143,6 +156,7 @@ public class TestAnnotators {
             xlwikifier = new CrossLingualWikifier(lang, config);
         } catch (IOException e) {
             e.printStackTrace();
+            fail(e.getMessage());
         }
 
         xlwikifier.addView(ta);

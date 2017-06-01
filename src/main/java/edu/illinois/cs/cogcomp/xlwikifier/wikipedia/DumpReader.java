@@ -44,11 +44,11 @@ public class DumpReader {
                 line = line.substring(start + 1, line.length());
                 String[] tokens = line.split("\\),\\(");
                 for (String t : tokens) {
-                    String[] ts = t.split("'");
-                    if (ts.length < 4) continue;
-                    String id = ts[0].substring(0, ts[0].length() - 1);
-                    String lang = ts[1];
-                    String en = ts[3];
+                    String[] ts = t.split(",'");
+                    if (ts.length < 3) continue;
+                    String id = ts[0];
+                    String lang = ts[1].substring(0, ts[1].length()-1);
+                    String en = ts[2].substring(0, ts[2].length()-1);
                     en = en.replaceAll("\\\\", "");
                     if (lang.equals(target_lang))
                         id2en.put(id, en);
@@ -84,8 +84,8 @@ public class DumpReader {
 
                         String title = tmp.substring(1).toLowerCase();
                         title = title.replaceAll("\\\\", "");
-                        if(lang.equals("zh"))
-                            title = ChineseHelper.convertToSimplifiedChinese(title);
+//                        if(lang.equals("zh"))
+//                            title = ChineseHelper.convertToSimplifiedChinese(title);
 
                         id2redirect.put(id, title);
                     }
@@ -115,9 +115,14 @@ public class DumpReader {
                     for (String t : tokens) {
                         String[] ts = t.split("',");
                         String[] cs = ts[0].split(",");
-                        if (cs[1].equals("0")) {
+                        if (cs[1].equals("0")) { // main namespace
                             if (cs.length < 3) continue;
                             if (cs[2].length() < 2) continue;
+
+                            // redirect
+                            String[] x = ts[2].split(",");
+                            if(x.length < 2 || x[1].equals("1"))
+                                continue;
 
                             List<String> cst = Arrays.asList(cs);
                             String tmp = cst.subList(2, cst.size()).stream().collect(joining(","));
@@ -125,8 +130,8 @@ public class DumpReader {
                             String id = cs[0];
                             String title = tmp.substring(1).toLowerCase();
                             title = title.replaceAll("\\\\", "");
-                            if(lang.equals("zh"))
-                                title = ChineseHelper.convertToSimplifiedChinese(title);
+//                            if(lang.equals("zh"))
+//                                title = ChineseHelper.convertToSimplifiedChinese(title);
                             title2id.put(title, id);
                             id2title.put(id, title);
                         }

@@ -23,6 +23,43 @@ public class MediaWikiSearch {
 
     private static String category_cache = ConfigParameters.search_cache+"/title_category";
     private static String search_cache = ConfigParameters.search_cache+"/search";
+    private static String revision_cache = ConfigParameters.search_cache+"/revision";
+
+    public static boolean isCreatedBefore(String lang, String title){
+        title = title.trim().replaceAll("\\s+", "_").replaceAll("/", "");
+        String timestamp = "20110101000000";
+        String cache_file = ConfigParameters.search_cache + "/revision/" + lang + "/"+timestamp+"/"+title;
+        String json = null;
+        if (IOUtils.exists(cache_file)) {
+            try {
+                json = FileUtils.readFileToString(new File(cache_file), "UTF-8");
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        } else {
+
+            HttpTransport httpTransport = new NetHttpTransport();
+            HttpRequestFactory requestFactory = httpTransport.createRequestFactory();
+            GenericUrl url = new GenericUrl("https://" + lang + ".wikipedia.org/w/api.php");
+            url.put("action", "query");
+            url.put("prop", "revisions");
+            url.put("titles", title);
+            url.put("rvprop", "timestamp");
+            url.put("rvstart", timestamp);
+            url.put("format", "json");
+            url.put("utf8", "");
+            try {
+                HttpRequest request = requestFactory.buildGetRequest(url);
+                HttpResponse httpResponse = request.execute();
+                json = httpResponse.parseAsString();
+                FileUtils.writeStringToFile(new File(cache_file), json, "UTF-8");
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+        }
+
+        return json.contains("revisions");
+    }
 
     public static List<String> search(String query, String lang, String mode) {
 
@@ -151,5 +188,16 @@ public class MediaWikiSearch {
 
     public static void main(String[] args) {
 
+        try {
+            ConfigParameters.setPropValues();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+
+        System.out.println(isCreatedBefore("en", "Dan Roth"));
+        System.out.println(isCreatedBefore("en", "Barack_Obama"));
+        System.out.println(isCreatedBefore("en", "birds"));
+        System.out.println(isCreatedBefore("zh", "巴拉克·歐巴馬"));
+        System.out.println(isCreatedBefore("zh", "劉星楠"));
     }
 }
