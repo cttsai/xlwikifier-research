@@ -49,6 +49,14 @@ public class XMLOffsetHandler {
         populateOffsetMapping();
     }
 
+    public Map<Integer, Integer> getPXMappingStart(){
+        return plain2xml_start;
+    }
+    public Map<Integer, Integer> getPXMappingEnd(){
+        return plain2xml_end;
+    }
+
+
     public int getNextNonXmlChar(String xml_text, int search_start){
         int next_start = search_start;
         boolean inxml = false, inquote = false;

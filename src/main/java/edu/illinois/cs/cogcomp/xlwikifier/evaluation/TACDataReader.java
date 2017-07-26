@@ -201,8 +201,8 @@ public class TACDataReader {
             int idx1 = filename.lastIndexOf("/");
             String docid = filename.substring(idx1+1, idx);
 
-            //if(!docid.equals("SPA_DF_001502_20091013_G00A0I1CI"))
-            //    continue;
+//            if(!docid.equals("SPA_DF_001253_20150710_G00A0HHBW"))
+//                continue;
 
             String xml_text = null;
             InputStream res = ResourceUtilities.loadResource(filename);

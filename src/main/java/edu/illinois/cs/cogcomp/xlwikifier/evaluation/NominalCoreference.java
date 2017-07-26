@@ -369,7 +369,7 @@ public class NominalCoreference {
 //        namfile = "/shared/experiments/ctsai12/workspace/xlwikifier-demo/TAC2016.es.all.conf";
         String namfile = "/shared/bronte/Tinkerbell/EDL/cold_start_outputs/es/TAC2017.es.nam";
         //String nomfile = "/home/ctsai12/CLionProjects/NER/cmake-build-debug/tac2016.spanish.nom.sub";
-        String nomfile = "/shared/bronte/Tinkerbell/EDL/cold_start_outputs/es/TAC2017.es.nom";
+        String nomfile = "/shared/bronte/Tinkerbell/EDL/cold_start_outputs/es/TAC2017.es.nom.fix";
 
         Map<String, List<ELMention>> nams = readSubmissionFormat(namfile);
         //Map<String, List<ELMention>> nams1 = readSubmissionFormat(namfile1);
@@ -384,14 +384,14 @@ public class NominalCoreference {
         Map<String, List<ELMention>> noms = readSubmissionFormat(nomfile);
 
         // main logic
-//        List<ELMention> mentions = addNOM(nams, noms);
+        List<ELMention> mentions = addNOM(nams, noms);
 
-//        printSubmissionFormat(mentions, "/shared/bronte/Tinkerbell/EDL/cold_start_outputs/es/TAC2017.es.nam.nom");
+        printSubmissionFormat(mentions, "/shared/bronte/Tinkerbell/EDL/cold_start_outputs/es/TAC2017.es.nam.nom.fix");
 
 //        String subfile = "/shared/bronte/Tinkerbell/EDL/cold_start_outputs/NAM_NOM.tac.conf";
-        String subfile = "/shared/bronte/Tinkerbell/EDL/cold_start_outputs/es/TAC2016.es.test";
-        String outfile = "es.test";
-        printEvalDocs(subfile, outfile);
+//        String subfile = "/shared/bronte/Tinkerbell/EDL/cold_start_outputs/es/TAC2016.es.test";
+//        String outfile = "es.test";
+//        printEvalDocs(subfile, outfile);
 
     }
 }

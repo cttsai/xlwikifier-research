@@ -282,17 +282,17 @@ public class PronounCoreference {
         // The original docs are needed because we need to know which mentions are author names
         List<QueryDocument> docs = null;
         try {
-            docs = reader.readDocs("/shared/corpora/corporaWeb/tac/LDC2016E63_TAC_KBP_2016_Evaluation_Source_Corpus_V1.1/data/spa/df/", "es");
-            docs.addAll(reader.readDocs("/shared/corpora/corporaWeb/tac/LDC2016E63_TAC_KBP_2016_Evaluation_Source_Corpus_V1.1/data/spa/nw/", "es"));
-//            docs = reader.readDocs("/shared/corpora/corporaWeb/tac/2017/LDC2017E25_TAC_KBP_2017_Evaluation_Source_Corpus/data/spa/nw/", "es");
-//            docs.addAll(reader.readDocs("/shared/corpora/corporaWeb/tac/2017/LDC2017E25_TAC_KBP_2017_Evaluation_Source_Corpus/data/spa/df/", "es"));
+//            docs = reader.readDocs("/shared/corpora/corporaWeb/tac/LDC2016E63_TAC_KBP_2016_Evaluation_Source_Corpus_V1.1/data/spa/df/", "es");
+//            docs.addAll(reader.readDocs("/shared/corpora/corporaWeb/tac/LDC2016E63_TAC_KBP_2016_Evaluation_Source_Corpus_V1.1/data/spa/nw/", "es"));
+            docs = reader.readDocs("/shared/corpora/corporaWeb/tac/2017/LDC2017E25_TAC_KBP_2017_Evaluation_Source_Corpus/data/spa/nw/", "es");
+            docs.addAll(reader.readDocs("/shared/corpora/corporaWeb/tac/2017/LDC2017E25_TAC_KBP_2017_Evaluation_Source_Corpus/data/spa/df/", "es"));
         } catch (IOException e) {
             e.printStackTrace();
         }
 
         // Read named entity/nominal mentions
-        Map<String, List<ELMention>> mentions = NominalCoreference.readSubmissionFormat("/shared/bronte/Tinkerbell/EDL/cold_start_outputs/es/TAC2016.es.nam.nom.nwauthor");
-//        Map<String, List<ELMention>> mentions = NominalCoreference.readSubmissionFormat("/shared/bronte/Tinkerbell/EDL/cold_start_outputs/es/TAC2017.es.nam.nom.nwauthor");
+//        Map<String, List<ELMention>> mentions = NominalCoreference.readSubmissionFormat("/shared/bronte/Tinkerbell/EDL/cold_start_outputs/es/TAC2016.es.nam.nom.nwauthor");
+        Map<String, List<ELMention>> mentions = NominalCoreference.readSubmissionFormat("/shared/bronte/Tinkerbell/EDL/cold_start_outputs/es/TAC2017.es.nam.nom.fix.nwauthor");
         for(QueryDocument doc: docs){
 //            if(!doc.getDocID().equals("SPA_NW_001278_20130812_F000154CF")) continue;
             if(mentions.containsKey(doc.getDocID()))
@@ -300,8 +300,8 @@ public class PronounCoreference {
         }
 
         // Read pronouns mentions
-        String profile = "/home/ctsai12/CLionProjects/NER/cmake-build-debug/tac2016.spanish.pro.sub";
-//		String profile = "/shared/bronte/Tinkerbell/EDL/cold_start_outputs/es/TAC2017.es.pro.fix";
+//        String profile = "/home/ctsai12/CLionProjects/NER/cmake-build-debug/tac2016.spanish.pro.sub";
+		String profile = "/shared/bronte/Tinkerbell/EDL/cold_start_outputs/es/TAC2017.es.pro.fix";
         Map<String, List<ELMention>> pros = NominalCoreference.readSubmissionFormat(profile);
 
 
@@ -311,13 +311,13 @@ public class PronounCoreference {
                 pe.pronounCoref(doc, pros.get(doc.getDocID()));
         }
 
-        String outdir = "/shared/bronte/Tinkerbell/EDL/cold_start_outputs/es/2016/";
+        String outdir = "/shared/bronte/Tinkerbell/EDL/cold_start_outputs/es/2017/";
         List<ELMention> ms = docs.stream().flatMap(x -> x.mentions.stream())
                 .filter(x -> !x.getSurface().contains("\""))
                 .collect(Collectors.toList());
 
-        NominalCoreference.printColdStartFormat(ms, outdir+"UIUC_EDL_SPA_cold_start_v3");
-        NominalCoreference.printEREFormat(ms, outdir+"UIUC_EDL_SPA_ere_v3");
+        NominalCoreference.printColdStartFormat(ms, outdir+"UIUC_EDL_SPA_cold_start_v4");
+        NominalCoreference.printEREFormat(ms, outdir+"UIUC_EDL_SPA_ere_v4");
 //        NominalCoreference.printSubmissionFormat(ms, outdir+"UIUC_EDL_SPA_tac_v1");
     }
 }

@@ -24,6 +24,11 @@ public class TitleTranslator {
 	public int freq_th = 10;
 	public double align_th = 0.2;
 	public static String lang;
+    public static List<String> types = Arrays.asList("loc", "org", "per");
+
+	public int maxiter;
+
+	private Map<String, JointModel> models;
 
 	public JointModel current_model;
 
@@ -100,31 +105,31 @@ public class TitleTranslator {
         }
     }
 
-    public void loadBaselineModels(String lang){
-        type2model = new HashMap<>();
-        List<String> types = Arrays.asList("loc", "org", "per");
-        for(String type: types) {
-            String modelfile = "/shared/corpora/ner/gazetteers/" + lang + "/model/" + type + ".naive";
-            try {
-                type2model.put(type, new SPModel(modelfile));
-            } catch (IOException e) {
-                e.printStackTrace();
-            }
-        }
-    }
-
-    public void loadJointModels(String lang){
-        type2model = new HashMap<>();
-        List<String> types = Arrays.asList("loc", "org", "per");
-        for(String type: types) {
-            String dir = "/shared/corpora/ner/gazetteers/" + lang + "/" + type + "/models/best1/";
-            try {
-                type2model.put(type, new SPModel(dir));
-            } catch (IOException e) {
-                e.printStackTrace();
-            }
-        }
-    }
+//    public void loadBaselineModels(String lang){
+//        type2model = new HashMap<>();
+//        List<String> types = Arrays.asList("loc", "org", "per");
+//        for(String type: types) {
+//            String modelfile = "/shared/corpora/ner/gazetteers/" + lang + "/model/" + type + ".naive";
+//            try {
+//                type2model.put(type, new SPModel(modelfile));
+//            } catch (IOException e) {
+//                e.printStackTrace();
+//            }
+//        }
+//    }
+//
+//    public void loadJointModels(String lang){
+//        type2model = new HashMap<>();
+//        List<String> types = Arrays.asList("loc", "org", "per");
+//        for(String type: types) {
+//            String dir = "/shared/corpora/ner/gazetteers/" + lang + "/" + type + "/models/best1/";
+//            try {
+//                type2model.put(type, new SPModel(dir));
+//            } catch (IOException e) {
+//                e.printStackTrace();
+//            }
+//        }
+//    }
 
 
     private void normalizeProbTGivenS(){
@@ -1437,7 +1442,7 @@ public class TitleTranslator {
 //        System.exit(-1);
 
 
-        int iter = 30;
+        int iter = 10;
         double max_f1 = 0, tf = 0;
         int max_iter = 0;
         for(int i = 0; i < iter; i++) {
@@ -1466,9 +1471,10 @@ public class TitleTranslator {
             }
             System.out.println("Best iteration: "+max_iter+" f1: dev "+max_f1+" test "+tf);
         	System.out.printf("%.2f\n", tf*100);
-			current_model.saveModel(modelfile+"-iter"+i);
+//			current_model.saveModel(modelfile+"-iter"+i);
 			printTestScores(modelfile+"-iter"+i);
         }
+        maxiter = max_iter; // a hack to store the best iterations for training the final model
 //        current_model.saveModel(modelfile);
         return new Pair<Double, Integer>(tf, test_pairs.size());
 
@@ -1477,22 +1483,43 @@ public class TitleTranslator {
 
     }
 
+    public void trainFinalModel(String trainfile, String modelfile){
+
+        System.out.println("Training the final model using "+maxiter+" iterations...");
+
+        List<Pair<String[], String[]>> train_pairs = TransUtils.readPairs(trainfile);
+
+        List<TitlePair> tpairs = initJointProb2(train_pairs);
+
+        for(int i = 0; i < maxiter; i++) {
+            updateJointProbs2(tpairs);
+
+            for(String src: e2f2prob.keySet()){
+                List<Map.Entry<String, Double>> p = e2f2prob.get(src).entrySet().stream()
+                        .sorted((x1, x2) -> Double.compare(x2.getValue(), x1.getValue()))
+                        .collect(Collectors.toList());
+                String tgt_word = p.get(0).getKey();
+                if(p.get(0).getValue() > align_th && !tgt_word.isEmpty())
+                    word_align.put(src, tgt_word);
+            }
+            current_model.memorization = new HashMap<>();
+            current_model.spmodel = new SPModel(s2t2prob);
+        }
+        current_model.saveModel(modelfile);
+    }
+
     public static void test(List<Integer> l){
         l.set(0, 2);
     }
 
 
-
-    public static void main(String[] args) {
-
-
+    public static void paperExperiments(String[] args){
         TitleTranslator tt = new TitleTranslator();
 
         List<String> langs = Arrays.asList("zh");
 
-		if(args.length > 1)
-			TransUtils.all_length = true;
-        List<String> types = Arrays.asList("loc", "org", "per");
+        if(args.length > 1)
+            TransUtils.all_length = true;
 
 //        Map<String, Map<String, String>> model_paths = MentionPredictor.loadJointModelPath();
 //        for(String lang: langs) {
@@ -1530,5 +1557,83 @@ public class TitleTranslator {
 
             System.out.printf("%.2f\n", total_f1 * 100 / total_pair);
         }
+
+    }
+
+    public static void train(String lang, String modelname){
+        TitleTranslator tt = new TitleTranslator();
+
+//			TransUtils.all_length = true;
+
+        TitleTranslator.lang = lang;
+
+        String dir = "/shared/corpora/ner/transliteration/" + lang + "/";
+
+        double total_f1 = 0;
+        int total_pair = 0;
+
+        for (String type : types) {
+            String infile = dir + type + "/train";
+            String testfile = dir + type + "/test";
+            String devfile = dir + type + "/dev";
+            String modelfile = dir + type + "/models/"+modelname;
+            if (TransUtils.all_length) modelfile += ".all";
+
+            Pair<Double, Integer> results = tt.jointTrainAlignTrans(infile, testfile, devfile, modelfile);
+            total_f1 += results.getFirst() * results.getSecond();
+            total_pair += results.getSecond();
+            tt.trainFinalModel(dir+type+"/all", modelfile);
+        }
+        System.out.printf("%.2f\n", total_f1 * 100 / total_pair);
+    }
+
+    public void loadModels(String lang, String modelname){
+        models = new HashMap<>();
+
+        String dir = "/shared/corpora/ner/transliteration/" + lang + "/";
+        for(String type: types){
+            String d = dir+type+"/models/"+modelname;
+            System.out.println("Loading model from "+d);
+            models.put(type, JointModel.loadModel(d));
+        }
+    }
+
+    /**
+     * Type could be {per, loc, org}
+     * @param type
+     * @param name
+     */
+    public List<String> translateName(String type, String name){
+        if(!models.containsKey(type)){
+            System.out.println("No model for type: "+type);
+            return null;
+        }
+
+
+        String[] words = name.split("\\s+"); // this won't work for Chinese
+
+        List<String> preds = models.get(type).generatePhraseAlign(words);
+        if(preds == null)
+            preds = models.get(type).generatePhrase(words);
+
+        return preds;
+    }
+
+
+    public static void main(String[] args) {
+
+//        paperExperiments(args);
+
+        String lang = "am";
+        String modelname = "test1";
+
+//        train("am", modelname); // train Amharic models
+
+        TitleTranslator tt = new TitleTranslator();
+
+        tt.loadModels(lang, modelname);
+
+        System.out.println(tt.translateName("loc", "ሰኸምካሬ ሶንበፍ"));
+
     }
 }

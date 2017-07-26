@@ -510,10 +510,10 @@ public class TitlePairGenerator {
 //			if(lang.equals("zh"))
 //				TransUtils.del = "·";
             // generate wiki title pairs
-            genTitlePairs(lang);
+//            genTitlePairs(lang);
 
             // make train, dev, and test splits, as well as naive word alignment baseline
-//            makeData(lang);
+            makeData(lang);
 
 //            toSequiturData(lang);
 //            toDirecTLData(lang);
