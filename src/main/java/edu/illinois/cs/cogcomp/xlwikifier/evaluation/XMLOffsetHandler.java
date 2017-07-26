@@ -36,6 +36,7 @@ public class XMLOffsetHandler {
         plain_text = Arrays.asList(plain_text.split("\n")).stream()
                 .filter(x -> !x.startsWith("http:"))
                 .filter(x -> !x.startsWith("<a href"))
+                .filter(x -> !x.startsWith("<AUTHOR"))
                 .filter(x -> !x.isEmpty())
                 .collect(joining(" "));
         plain_text = plain_text.replaceAll("\\s+"," ");

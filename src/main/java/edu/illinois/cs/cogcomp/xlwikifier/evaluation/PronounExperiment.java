@@ -80,7 +80,7 @@ public class PronounExperiment {
 
         for(QueryDocument doc: docs){
 
-            List<ELMention> authors = TACUtils.getPostAuthors(doc);
+            List<ELMention> authors = TACUtils.getDFAuthors(doc);
             List<ELMention> quote_authors = TACUtils.getQuoteAuthors(doc);
 
             doc.mentions = doc.mentions.stream().sorted(Comparator.comparingInt(ELMention::getStartOffset)).collect(Collectors.toList());

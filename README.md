@@ -19,23 +19,23 @@ mvn dependency:copy-dependencies
 mvn compile
 ./scripts/run-benchmark.sh es config/xlwikifier-tac.config
 ```
-This script evaluates Spanish and Chinese performnace on TAC-KBP 2016 EDL shared task. You need to specify the paths to the test documents and the gold annotations in the config file. Check [config/xlwikifier-tac.config](https://github.com/cttsai/illinois-cross-lingual-wikifier/blob/master/config/xlwikifier-tac.config) for example. These documents are in the original format provided by LDC. You will get the following performance on named entities:
+This script runs and evaluates on the TAC-KBP 2016 EDL shared task (en: English, es: Spanish, zh: Chinese). You need to specify the paths to the evaluation documents and the gold annotations in the config file. Please check [config/xlwikifier-tac.config](https://github.com/cttsai/illinois-cross-lingual-wikifier/blob/master/config/xlwikifier-tac.config) for example. These documents are in the original format provided by LDC. Using the [official evaluation script](https://github.com/wikilinks/neleval), this package gets the following performance on named entities:
 
 ```
 English
-strong mention match:       Precision:0.936 Recall:0.833 F1:0.882
-strong typed mention match: Precision:0.905 Recall:0.806 F1:0.853
-strong typed all match:     Precision:0.807 Recall:0.719 F1:0.761
+strong mention match:       Precision:93.4 Recall:83.7 F1:88.3
+strong typed mention match: Precision:90.3 Recall:80.9 F1:85.4
+strong typed all match:     Precision:80.9 Recall:72.6 F1:76.5
 
 Spanish 
-strong mention match:       Precision:0.885 Recall:0.807 F1:0.844
-strong typed mention match: Precision:0.857 Recall:0.781 F1:0.817
-strong typed all match:     Precision:0.781 Recall:0.712 F1:0.745
+strong mention match:       Precision:88.4 Recall:81.8 F1:85.0
+strong typed mention match: Precision:85.7 Recall:79.3 F1:82.3
+strong typed all match:     Precision:78.1 Recall:72.3 F1:75.1
 
 Chinese
-strong mention match:       Precision:0.870 Recall:0.728 F1:0.793
-strong typed mention match: Precision:0.832 Recall:0.696 F1:0.758
-strong typed all match:     Precision:0.775 Recall:0.649 F1:0.706
+strong mention match:       Precision:87.0 Recall:72.8 F1:79.3
+strong typed mention match: Precision:83.2 Recall:69.6 F1:75.8
+strong typed all match:     Precision:77.5 Recall:64.9 F1:70.6
 ```
 ### Train NER Model
 

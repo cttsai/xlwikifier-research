@@ -111,7 +111,7 @@ public class PronounCoreference {
 
         doc.mentions = doc.mentions.stream().sorted(Comparator.comparingInt(ELMention::getStartOffset)).collect(Collectors.toList());
 
-        List<ELMention> authors = TACUtils.getPostAuthors(doc);
+        List<ELMention> authors = TACUtils.getDFAuthors(doc);
         List<ELMention> quote_authors = TACUtils.getQuoteAuthors(doc);
 //        System.out.println(quote_authors.size());
 
