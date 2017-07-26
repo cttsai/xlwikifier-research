@@ -210,6 +210,7 @@ public class Ranker {
                 m.setWikiTitle("NIL");
                 m.setMidVec(null);
             }
+
         }
     }
 

@@ -51,7 +51,7 @@ public class Squad{
 
 				if (NumberUtils.isNumber(surface.trim())) continue;
 
-				nerutils.wikifyMention(m, n);
+//				nerutils.wikiwikifyMention(m, n);
 				if(!m.getWikiTitle().startsWith("NIL")){
 					mout += m.getSurface()+"\t"+m.getStartOffset()+"\t"+m.getEndOffset()+"\t"+m.getWikiTitle()+"\t"+m.getMid()+"\n";
 				}

@@ -11,6 +11,10 @@ import org.slf4j.LoggerFactory;
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.util.*;
+import java.util.stream.Collectors;
+
+import static java.util.stream.Collectors.groupingBy;
+import static java.util.stream.Collectors.toList;
 
 /**
  * Created by ctsai12 on 3/2/16.
@@ -141,13 +145,13 @@ public class ColumnFormatReader {
             e.printStackTrace();
         }
         for(String line: lines){
-            System.out.println(line);
+//            System.out.println(line);
             if(line.contains("-DOCSTART-")) continue;
             if(line.trim().isEmpty()){
                 if(surfaces.size()>0 && (sen_ends.size() == 0 || surfaces.size()!= sen_ends.get(sen_ends.size()-1)))
                     sen_ends.add(surfaces.size());
                 if(mention != null && mention_start!=-1 && mention_end!=-1){
-                    System.out.println("add");
+//                    System.out.println("add");
                     mentions.add(createMention(docid));
                 }
             }
@@ -219,7 +223,7 @@ public class ColumnFormatReader {
             logger.info("# wikifier features doesn't match # tokens!");
             System.exit(-1);
         }
-        System.out.println("3");
+//        System.out.println("3");
         return doc;
     }
 
@@ -230,8 +234,6 @@ public class ColumnFormatReader {
         int cnt = 0;
         for(File f: folder.listFiles()){
             System.out.println(cnt++);
-            if(!f.getName().equals("NW_SZE_HUN_004193_20060602.conll"))
-                continue;
             logger.info("Reading "+f.getName());
             QueryDocument doc = readFile(f);
             if(!skip_nomen || doc.mentions.size()>0) {
@@ -246,5 +248,37 @@ public class ColumnFormatReader {
 
     public static void main(String[] args) {
         ColumnFormatReader r = new ColumnFormatReader();
+
+        String dir = "/shared/corpora/corporaWeb/lorelei/data/LDC2016E86_LORELEI_Amharic_Representative_Language_Pack_Monolingual_Text_V1.1/data/monolingual_text/zipped/dryrun-outputs/rpi/Train-stem";
+//        String dir = "/shared/corpora/corporaWeb/lorelei/data/LDC2016E86_LORELEI_Amharic_Representative_Language_Pack_Monolingual_Text_V1.1/data/monolingual_text/zipped/final-test2-stem";
+        List<QueryDocument> docs = r.readDir(dir, true);
+
+        Set<String> mentions = new HashSet<>();
+        for(QueryDocument doc: docs){
+            for(ELMention m: doc.mentions)
+                mentions.add(m.getSurface().toLowerCase());
+        }
+
+
+
+        String testdir = "/shared/corpora/ner/lorelei/am/All-nosn-stem";
+        List<QueryDocument> test_docs = r.readDir(testdir, true);
+        Set<String> tmentions = new HashSet<>();
+        for(QueryDocument doc: test_docs){
+            for(ELMention m: doc.mentions)
+                tmentions.add(m.getSurface().toLowerCase());
+        }
+        Map<String, List<ELMention>> type2ms = docs.stream().flatMap(x -> x.mentions.stream()).collect(groupingBy(x -> x.getType(), toList()));
+        for(String t: type2ms.keySet())
+            System.out.println(t+" "+type2ms.get(t).size());
+
+        type2ms = test_docs.stream().flatMap(x -> x.mentions.stream()).collect(groupingBy(x -> x.getType(), toList()));
+        for(String t: type2ms.keySet())
+            System.out.println(t+" "+type2ms.get(t).size());
+        System.out.println(mentions.size()+" "+tmentions.size());
+
+        tmentions.retainAll(mentions);
+        System.out.println(tmentions.size());
+
     }
 }

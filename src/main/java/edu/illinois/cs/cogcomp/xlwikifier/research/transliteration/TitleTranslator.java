@@ -1493,7 +1493,6 @@ public class TitleTranslator {
 		if(args.length > 1)
 			TransUtils.all_length = true;
         List<String> types = Arrays.asList("loc", "org", "per");
-//        List<String> types = Arrays.asList("org");
 
 //        Map<String, Map<String, String>> model_paths = MentionPredictor.loadJointModelPath();
 //        for(String lang: langs) {

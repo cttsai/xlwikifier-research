@@ -138,9 +138,10 @@ public class TitlePairGenerator {
         List<String> test = per.subList(per.size()*7/10, per.size());
 
         try {
-            FileUtils.writeStringToFile(new File(dir+"per", "train.new"), train.stream().collect(joining("\n")), "UTF-8");
-            FileUtils.writeStringToFile(new File(dir+"per", "dev.new"), dev.stream().collect(joining("\n")), "UTF-8");
-            FileUtils.writeStringToFile(new File(dir+"per", "test.new"), test.stream().collect(joining("\n")), "UTF-8");
+            FileUtils.writeStringToFile(new File(dir+"per", "train"), train.stream().collect(joining("\n")), "UTF-8");
+            FileUtils.writeStringToFile(new File(dir+"per", "dev"), dev.stream().collect(joining("\n")), "UTF-8");
+            FileUtils.writeStringToFile(new File(dir+"per", "test"), test.stream().collect(joining("\n")), "UTF-8");
+            FileUtils.writeStringToFile(new File(dir+"per", "all"), per.stream().collect(joining("\n")), "UTF-8");
         } catch (IOException e) {
             e.printStackTrace();
         }
@@ -152,9 +153,10 @@ public class TitlePairGenerator {
         test = loc.subList(loc.size()*7/10, loc.size());
 
         try {
-            FileUtils.writeStringToFile(new File(dir+"loc", "train.new"), train.stream().collect(joining("\n")), "UTF-8");
-            FileUtils.writeStringToFile(new File(dir+"loc", "dev.new"), dev.stream().collect(joining("\n")), "UTF-8");
-            FileUtils.writeStringToFile(new File(dir+"loc", "test.new"), test.stream().collect(joining("\n")), "UTF-8");
+            FileUtils.writeStringToFile(new File(dir+"loc", "train"), train.stream().collect(joining("\n")), "UTF-8");
+            FileUtils.writeStringToFile(new File(dir+"loc", "dev"), dev.stream().collect(joining("\n")), "UTF-8");
+            FileUtils.writeStringToFile(new File(dir+"loc", "test"), test.stream().collect(joining("\n")), "UTF-8");
+            FileUtils.writeStringToFile(new File(dir+"loc", "all"), loc.stream().collect(joining("\n")), "UTF-8");
         } catch (IOException e) {
             e.printStackTrace();
         }
@@ -166,9 +168,10 @@ public class TitlePairGenerator {
         test = org.subList(org.size()*7/10, org.size());
 
         try {
-            FileUtils.writeStringToFile(new File(dir+"org", "train.new"), train.stream().collect(joining("\n")), "UTF-8");
-            FileUtils.writeStringToFile(new File(dir+"org", "dev.new"), dev.stream().collect(joining("\n")), "UTF-8");
-            FileUtils.writeStringToFile(new File(dir+"org", "test.new"), test.stream().collect(joining("\n")), "UTF-8");
+            FileUtils.writeStringToFile(new File(dir+"org", "train"), train.stream().collect(joining("\n")), "UTF-8");
+            FileUtils.writeStringToFile(new File(dir+"org", "dev"), dev.stream().collect(joining("\n")), "UTF-8");
+            FileUtils.writeStringToFile(new File(dir+"org", "test"), test.stream().collect(joining("\n")), "UTF-8");
+            FileUtils.writeStringToFile(new File(dir+"org", "all"), org.stream().collect(joining("\n")), "UTF-8");
         } catch (IOException e) {
             e.printStackTrace();
         }
@@ -498,7 +501,7 @@ public class TitlePairGenerator {
 
 //        List<String> langs = Arrays.asList("zh");
 //        List<String> langs = Arrays.asList("es","de","tr","tl","bn","fr", "it", "he", "ar");
-        List<String> langs = Arrays.asList("zh");
+        List<String> langs = Arrays.asList("am");
 ///        String lang = args[0];
 //        interSize();
 //        System.exit(-1);
@@ -507,10 +510,10 @@ public class TitlePairGenerator {
 //			if(lang.equals("zh"))
 //				TransUtils.del = "·";
             // generate wiki title pairs
-//            genTitlePairs(lang);
+            genTitlePairs(lang);
 
             // make train, dev, and test splits, as well as naive word alignment baseline
-            makeData(lang);
+//            makeData(lang);
 
 //            toSequiturData(lang);
 //            toDirecTLData(lang);

@@ -80,7 +80,52 @@ public class Importer {
         }
     }
 
+    public void generatePlainText() throws IOException, SAXException {
+        logger.info("Parsing wikidump " + dumpfile);
+        String dumpdir = ConfigParameters.dump_path + lang;
+        String outfile = dumpdir + "/plain.text";
+        StringBuilder doc_text = new StringBuilder();
+        MLWikiDumpFilter filter = new MLWikiDumpFilter(20) {
+            @Override
+            public void processAnnotation(WikiArticle page, PageMeta meta, TextAnnotation ta) throws Exception {
+                if (ta == null || meta.isRedirect() || meta.isDisambiguationPage())
+                    return;
+
+                // output wikidata
+//                if(wikipedia_view.getConstituents().size() < 5 || page.getTitle().contains("/"))
+                if (page.getTitle().contains("/"))
+                    return;
+
+                String doc = "";
+                for (int j = 0; j < ta.getNumberOfSentences(); j++) {
+                    Sentence s = ta.getSentence(j);
+                    String text = s.getTokenizedText().trim();
+                    if (!text.isEmpty() && !text.startsWith("<"))
+                        doc += s.getTokenizedText().trim() + "\n";
+                }
+
+                synchronized (doc_text) {
+                    //if(doc.length() > 10)
+                    doc_text.append(doc + "\n");
+                    if (doc_text.length() > 1000000) {
+                        BufferedWriter bw = new BufferedWriter(new FileWriter(outfile, true));
+                        bw.write(doc_text.toString());
+                        bw.close();
+                        doc_text.delete(0, doc_text.length());
+                    }
+                }
+            }
+        };
+        filter.setLang(lang);
+        MLWikiDumpFilter.parseDump(dumpfile, filter);
+
+        BufferedWriter bw = new BufferedWriter(new FileWriter(outfile, true));
+        bw.write(doc_text.toString());
+        bw.close();
+    }
+
     public void parseWikiDump() throws IOException, SAXException {
+
         logger.info("Parsing wikidump " + dumpfile);
         if(new File(textfile).exists()){
             logger.warn(textfile+" exists!");
@@ -259,11 +304,12 @@ public class Importer {
 //        Importer importer = new Importer(args[0], args[1]);
 
         List<String> langs = new ArrayList<>();
-        try {
-            langs = LineIO.read("import-langs");
-        } catch (FileNotFoundException e) {
-            e.printStackTrace();
-        }
+        langs.add("en");
+//        try {
+//            langs = LineIO.read("import-langs");
+//        } catch (FileNotFoundException e) {
+//            e.printStackTrace();
+//        }
         String date = "20160801";
 //        String date = "20161101";
 //        String date = "20170320";
@@ -273,9 +319,10 @@ public class Importer {
             Importer importer = new Importer(lang, date);
             try {
 //                importer.downloadDump();
+                importer.generatePlainText();
 //                importer.parseWikiDump();
 //                importer.importLangLinks();
-                importer.importCandidates();
+//                importer.importCandidates();
 //                importer.importTFIDF();
 //                importer.getMostFreqWords();
             } catch (Exception e) {

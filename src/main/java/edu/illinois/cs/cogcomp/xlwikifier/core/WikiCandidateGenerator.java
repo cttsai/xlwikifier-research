@@ -16,6 +16,7 @@ import edu.illinois.cs.cogcomp.xlwikifier.research.transliteration.TitleTranslat
 import edu.illinois.cs.cogcomp.xlwikifier.research.transliteration.TransUtils;
 import edu.illinois.cs.cogcomp.xlwikifier.wikipedia.DumpReader;
 import edu.illinois.cs.cogcomp.xlwikifier.wikipedia.MediaWikiSearch;
+import edu.illinois.cs.cogcomp.xlwikifier.freebase.FreeBaseQuery;
 import org.mapdb.*;
 import org.mapdb.serializer.SerializerArray;
 import org.slf4j.Logger;
@@ -64,7 +65,7 @@ public class WikiCandidateGenerator {
             word_search = true;
         }
 
-        loadTransliterationModels(lang);
+//        loadTransliterationModels(lang);
         loadDB(lang, read_only);
         tokenizer = MultiLingualTokenizer.getTokenizer(lang);
         if (!lang.equals("en"))
@@ -119,12 +120,12 @@ public class WikiCandidateGenerator {
                         .open();
                 t2w2prob = db.treeMap("t2w", new SerializerArray(Serializer.STRING), Serializer.FLOAT)
                         .open();
-                if(lang.equals("en")) {
-                    fg2t2prob = db.treeMap("fg2t", new SerializerArray(Serializer.STRING), Serializer.FLOAT)
-                            .open();
-                    t2fg2prob = db.treeMap("t2fg", new SerializerArray(Serializer.STRING), Serializer.FLOAT)
-                            .open();
-                }
+//                if(lang.equals("en")) {
+//                    fg2t2prob = db.treeMap("fg2t", new SerializerArray(Serializer.STRING), Serializer.FLOAT)
+//                            .open();
+//                    t2fg2prob = db.treeMap("t2fg", new SerializerArray(Serializer.STRING), Serializer.FLOAT)
+//                            .open();
+//                }
             } else {
                 db = DBMaker.fileDB(new File(dbfile))
                         .closeOnJvmShutdown()
@@ -137,10 +138,10 @@ public class WikiCandidateGenerator {
                         .create();
                 t2w2prob = db.treeMap("t2w", new SerializerArray(Serializer.STRING), Serializer.FLOAT)
                         .create();
-                fg2t2prob = db.treeMap("fg2t", new SerializerArray(Serializer.STRING), Serializer.FLOAT)
-                        .create();
-                t2fg2prob = db.treeMap("t2fg", new SerializerArray(Serializer.STRING), Serializer.FLOAT)
-                        .create();
+//                fg2t2prob = db.treeMap("fg2t", new SerializerArray(Serializer.STRING), Serializer.FLOAT)
+//                        .create();
+//                t2fg2prob = db.treeMap("t2fg", new SerializerArray(Serializer.STRING), Serializer.FLOAT)
+//                        .create();
             }
             db_pool.put(lang, db);
         }
@@ -187,20 +188,63 @@ public class WikiCandidateGenerator {
             if (m.getCandidates().size() == 0) {
                 List<WikiCand> cands = genCandidate(m.getSurface());
 
-                int c = cands.size();
-                cands = cands.stream().filter(x -> MediaWikiSearch.isCreatedBefore(x.lang, x.title)).collect(toList());
-
-                nremove += c - cands.size();
-
-                // transliterate mention into English
-                if(cands.size() == 0) {
-                    cands = genCandidateByTransliteration(m.getSurface(), m.getType(), 10);
-                    System.out.println(m.getSurface()+" "+cands.size());
-                }
+//                int c = cands.size();
+//                cands = cands.stream().filter(x -> MediaWikiSearch.isCreatedBefore(x.lang, x.title)).collect(toList());
+//
+//                nremove += c - cands.size();
+//
+//                // transliterate mention into English
+//                if(cands.size() == 0) {
+//                    cands = genCandidateByTransliteration(m.getSurface(), m.getType(), 10);
+//                    System.out.println(m.getSurface()+" "+cands.size());
+//                }
 
 //                cands = cands.stream().filter(x -> MediaWikiSearch.isCreatedBefore(x.lang, x.title)).collect(toList());;
 
                 cands = cands.subList(0, Math.min(top, cands.size()));
+
+                // filter candidates based on error analysis on TAC datasets
+                if(lang.equals("en")) {
+                    cands = cands.stream().filter(x -> !x.getTitle().contains("_language"))
+                            .filter(x -> !x.getTitle().contains("_people"))
+                            .filter(x -> !x.getTitle().contains("_cuisine"))
+                            .filter(x -> !x.getTitle().contains("_dollar"))
+                            .filter(x -> !x.getTitle().contains("_studies"))
+                            .filter(x -> !x.getTitle().contains("_americans"))
+                            .filter(x -> !x.getTitle().contains("disambiguation)")).collect(toList());
+                    if(m.getSurface().toLowerCase().equals("washington")){
+                        cands = cands.stream().filter(x -> x.getTitle().equals("washington,_d.c.")).collect(toList());
+                    }
+                    if(m.getSurface().toLowerCase().equals("new york")){
+                        cands = cands.stream().filter(x -> x.getTitle().equals("new_york_city")).collect(toList());
+                    }
+                    if(m.getSurface().toLowerCase().equals("european")){
+                        cands = cands.stream().filter(x -> x.getTitle().equals("europe")).collect(toList());
+                    }
+                    if(m.getSurface().toLowerCase().equals("german")){
+                        cands = cands.stream().filter(x -> x.getTitle().equals("germany")).collect(toList());
+                    }
+                }
+                else if(lang.equals("es")) {
+                    cands = cands.stream().filter(x -> !x.getTitle().startsWith("idioma_"))
+                            .filter(x -> !x.getTitle().startsWith("pueblo_"))
+                            .filter(x -> !x.getTitle().endsWith("(desambiguación)"))
+                            .collect(toList());
+                    if(m.getSurface().toLowerCase().equals("washington")){
+                        cands = cands.stream().filter(x -> x.getTitle().equals("washington_d._c.")).collect(toList());
+                    }
+                }
+                else if(lang.equals("zh")){
+                    if(m.getSurface().equals("台湾")){
+                        cands = cands.stream().filter(x -> x.getTitle().equals("中华民国")).collect(toList());
+					}
+					else if(m.getSurface().equals("中国")){
+                        cands = cands.stream().filter(x -> x.getTitle().equals("中国")).collect(toList());
+					}
+					else if(m.getSurface().equals("共产党")){
+                        cands = cands.stream().filter(x -> x.getTitle().equals("中国共产党")).collect(toList());
+					}
+                }
                 m.getCandidates().addAll(cands);
             }
         }
@@ -750,6 +794,21 @@ public class WikiCandidateGenerator {
 
     public void selectMentions(List<QueryDocument> docs, double p) {
         System.out.println("#mentions before selection: " + docs.stream().flatMap(x -> x.mentions.stream()).count());
+
+        String query_lang = lang;
+        for(QueryDocument doc: docs){
+            List<ELMention> ms = new ArrayList<>();
+            for(ELMention m: doc.mentions){
+                if(lang.equals("zh"))
+                    query_lang = "zh-cn";
+                List<String> types = FreeBaseQuery.getTypesFromTitle(m.gold_wiki_title, query_lang);
+                if(types.contains("person.person") || types.contains("organization.organization") || types.contains("location.location"))
+                    ms.add(m);
+            }
+            doc.mentions = ms;
+        }
+        System.out.println("# named entity mentions" + docs.stream().flatMap(x -> x.mentions.stream()).count());
+
         List<ELMention> easy_all = new ArrayList<>();
         List<ELMention> hard_all = new ArrayList<>();
         for (QueryDocument doc : docs) {
@@ -783,9 +842,10 @@ public class WikiCandidateGenerator {
             e.printStackTrace();
             System.exit(-1);
         }
-        WikiCandidateGenerator g = new WikiCandidateGenerator("ta", true);
-        System.out.println(g.getCandsBySurface("டிரம்ப் "));
-        System.out.println(g.getCandidateByWord("டிரம்ப் ", 10));
+        WikiCandidateGenerator g = new WikiCandidateGenerator("en", true);
+        System.out.println(g.getCandsBySurface("new york"));
+        System.out.println(g.getCandsBySurface("washington"));
+        System.out.println(g.getCandsBySurface("western"));
         System.exit(-1);
 
         g.closeDB();
