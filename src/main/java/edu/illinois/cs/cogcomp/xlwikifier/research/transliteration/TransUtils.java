@@ -15,7 +15,7 @@ public class TransUtils {
 
     public static String del = "\\s+";
 	public static boolean all_length = false;
-    private static final int l_th = 15;
+    private static final int l_th = 10;
     public static List<String> langs = Arrays.asList("es","de","tr","tl","bn","he","fr","it","ar");
     public static List<String> types = Arrays.asList("loc", "org", "per");
 

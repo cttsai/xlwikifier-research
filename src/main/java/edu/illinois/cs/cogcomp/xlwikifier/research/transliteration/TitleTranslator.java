@@ -1485,9 +1485,12 @@ public class TitleTranslator {
 
     public void trainFinalModel(String trainfile, String modelfile){
 
+        if(maxiter == 0)
+            maxiter = 3;
+
         System.out.println("Training the final model using "+maxiter+" iterations...");
 
-        List<Pair<String[], String[]>> train_pairs = TransUtils.readPairs(trainfile);
+        List<Pair<String[], String[]>> train_pairs = TransUtils.readPairs(trainfile, 1000, 3);
 
         List<TitlePair> tpairs = initJointProb2(train_pairs);
 
@@ -1512,6 +1515,34 @@ public class TitleTranslator {
         l.set(0, 2);
     }
 
+    public static void sizeExperiments(String[] args){
+        TitleTranslator tt = new TitleTranslator();
+
+        String lang = "he";
+
+        if(args.length > 1)
+            TransUtils.all_length = true;
+
+        TitleTranslator.lang = lang;
+
+        String dir = "/shared/corpora/ner/transliteration/" + lang + "/";
+
+
+        for (String type : types) {
+            System.out.println("===== "+type+" =====");
+            for(int size = 50; size <= 50; size*=2) {
+                System.out.println("----- "+size+" -----");
+                String infile = dir + type + "/train.select";
+                String testfile = dir + type + "/test.select";
+                String devfile = dir + type + "/dev.select";
+                String modelfile = dir + type + "/models/tmp";
+                if (TransUtils.all_length) modelfile += ".all";
+
+                Pair<Double, Integer> results = tt.jointTrainAlignTrans(infile, testfile, devfile, modelfile);
+                System.out.println("Best F1: "+results.getFirst());
+            }
+        }
+    }
 
     public static void paperExperiments(String[] args){
         TitleTranslator tt = new TitleTranslator();
@@ -1622,18 +1653,20 @@ public class TitleTranslator {
 
     public static void main(String[] args) {
 
+//        sizeExperiments(args);
+
 //        paperExperiments(args);
 
-        String lang = "am";
-        String modelname = "test1";
-
-//        train("am", modelname); // train Amharic models
-
+        String lang = "ti";
+        String modelname = "cp1-1";
+//
+//        train("ti", modelname); // train Amharic models
+//
         TitleTranslator tt = new TitleTranslator();
-
+//
         tt.loadModels(lang, modelname);
-
-        System.out.println(tt.translateName("loc", "ሰኸምካሬ ሶንበፍ"));
+//
+        System.out.println(tt.translateName("per", "ኤርሚያስ ለገሰ"));
 
     }
 }

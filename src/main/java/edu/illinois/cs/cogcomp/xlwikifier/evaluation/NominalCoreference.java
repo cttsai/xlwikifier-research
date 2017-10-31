@@ -366,9 +366,10 @@ public class NominalCoreference {
 
     public static void main(String[] args) {
 
-//        namfile = "/shared/experiments/ctsai12/workspace/xlwikifier-demo/TAC2016.es.all.conf";
+//        String namfile = "/shared/bronte/Tinkerbell/EDL/cold_start_outputs/es/TAC2016.es.nam";
+//        String namfile1 = "/shared/bronte/Tinkerbell/EDL/cold_start_outputs/es/TAC2017.es.nam.eval";
         String namfile = "/shared/bronte/Tinkerbell/EDL/cold_start_outputs/es/TAC2017.es.nam";
-        //String nomfile = "/home/ctsai12/CLionProjects/NER/cmake-build-debug/tac2016.spanish.nom.sub";
+//        String nomfile = "/shared/bronte/Tinkerbell/EDL/cold_start_outputs/es/TAC2016.es.nom";
         String nomfile = "/shared/bronte/Tinkerbell/EDL/cold_start_outputs/es/TAC2017.es.nom.fix";
 
         Map<String, List<ELMention>> nams = readSubmissionFormat(namfile);

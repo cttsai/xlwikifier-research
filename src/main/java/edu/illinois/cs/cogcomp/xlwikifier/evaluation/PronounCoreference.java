@@ -300,7 +300,7 @@ public class PronounCoreference {
         }
 
         // Read pronouns mentions
-//        String profile = "/home/ctsai12/CLionProjects/NER/cmake-build-debug/tac2016.spanish.pro.sub";
+//        String profile = "/shared/bronte/Tinkerbell/EDL/cold_start_outputs/es/TAC2016.es.pro";
 		String profile = "/shared/bronte/Tinkerbell/EDL/cold_start_outputs/es/TAC2017.es.pro.fix";
         Map<String, List<ELMention>> pros = NominalCoreference.readSubmissionFormat(profile);
 

@@ -501,7 +501,7 @@ public class TitlePairGenerator {
 
 //        List<String> langs = Arrays.asList("zh");
 //        List<String> langs = Arrays.asList("es","de","tr","tl","bn","fr", "it", "he", "ar");
-        List<String> langs = Arrays.asList("am");
+        List<String> langs = Arrays.asList("ti");
 ///        String lang = args[0];
 //        interSize();
 //        System.exit(-1);
@@ -510,10 +510,10 @@ public class TitlePairGenerator {
 //			if(lang.equals("zh"))
 //				TransUtils.del = "·";
             // generate wiki title pairs
-//            genTitlePairs(lang);
+            genTitlePairs(lang);
 
             // make train, dev, and test splits, as well as naive word alignment baseline
-            makeData(lang);
+//            makeData(lang);
 
 //            toSequiturData(lang);
 //            toDirecTLData(lang);
